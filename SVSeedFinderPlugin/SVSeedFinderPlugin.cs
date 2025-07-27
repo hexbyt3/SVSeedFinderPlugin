@@ -22,6 +22,13 @@ public sealed class SVSeedFinderPlugin : IPlugin
     public void Initialize(params object[] args)
     {
         Console.WriteLine($"Loading {Name}...");
+
+        // Check version compatibility
+        if (PluginVersion.HasVersionMismatch())
+        {
+            Console.WriteLine($"[{Name}] {PluginVersion.GetCompatibilityMessage()}");
+        }
+
         SaveFileEditor = (ISaveFileProvider)Array.Find(args, z => z is ISaveFileProvider)!;
         PKMEditor = (IPKMView)Array.Find(args, z => z is IPKMView)!;
         var menu = (ToolStrip)Array.Find(args, z => z is ToolStrip)!;
