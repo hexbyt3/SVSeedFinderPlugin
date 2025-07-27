@@ -12,6 +12,7 @@ The tool supports all raid types including standard Tera Raids, event distributi
 
 ## Screenshots
 <img width="1016" height="676" alt="image" src="https://github.com/user-attachments/assets/e3f936e8-b9bf-456e-91ea-614247327fb9" />
+<img width="400" height="412" alt="image" src="https://github.com/user-attachments/assets/2024ccca-a032-4f20-bdce-164f09cd94e7" />
 
 ## Features
 
