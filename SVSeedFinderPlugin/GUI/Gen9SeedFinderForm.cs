@@ -51,6 +51,17 @@ public sealed partial class Gen9SeedFinderForm : Form
         _pkmEditor = pkmEditor;
         InitializeComponent();
         LoadSpeciesList();
+        LoadTrainerData();
+    }
+
+    /// <summary>
+    /// Loads trainer data from the current save file
+    /// </summary>
+    private void LoadTrainerData()
+    {
+        var sav = _saveFileEditor.SAV;
+        tidNum.Value = sav.TID16;
+        sidNum.Value = sav.SID16;
     }
 
     /// <summary>
@@ -1035,6 +1046,11 @@ public sealed partial class Gen9SeedFinderForm : Form
     {
         var pi = PersonalTable.SV[encounter.Species, encounter.Form];
 
+        // Get TID/SID from UI instead of save file
+        ushort tid = (ushort)tidNum.Value;
+        ushort sid = (ushort)sidNum.Value;
+        uint id32 = ((uint)sid << 16) | tid;
+
         // Get proper parameters based on encounter type
         byte genderRatio = pi.Gender;
         byte height = 0;
@@ -1096,7 +1112,7 @@ public sealed partial class Gen9SeedFinderForm : Form
             MetDate = EncounterDate.GetDateSwitch(),
             Version = _saveFileEditor.SAV.Version,
             Ball = (byte)Ball.Poke,
-            ID32 = _saveFileEditor.SAV.ID32,
+            ID32 = id32,
             OriginalTrainerName = _saveFileEditor.SAV.OT,
             OriginalTrainerGender = _saveFileEditor.SAV.Gender,
             Language = language,
@@ -1228,13 +1244,13 @@ public sealed partial class Gen9SeedFinderForm : Form
         try
         {
             using var writer = new System.IO.StreamWriter(sfd.FileName);
-            writer.WriteLine("Seed,Stars,Shiny,Nature,Ability,IVs,TeraType");
+            writer.WriteLine($"Seed,Stars,Shiny,Nature,Ability,IVs,TeraType,TID,SID");
 
             foreach (var result in _results)
             {
                 writer.WriteLine($"{result.Seed:X8},{result.Encounter.Stars}★,{(result.Pokemon.IsShiny ? "Yes" : "No")}," +
                                $"{result.Pokemon.Nature},{GetAbilityName(result.Pokemon)},{GetIVString(result.Pokemon)}," +
-                               $"{result.Pokemon.TeraTypeOriginal}");
+                               $"{result.Pokemon.TeraTypeOriginal},{result.Pokemon.TID16},{result.Pokemon.SID16}");
             }
 
             WinFormsUtil.Alert("Export successful!");

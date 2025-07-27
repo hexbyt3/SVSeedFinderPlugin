@@ -32,6 +32,10 @@ namespace SVSeedFinderPlugin.GUI
             this.encounterCombo = new System.Windows.Forms.ComboBox();
 
             this.criteriaGroup = new System.Windows.Forms.GroupBox();
+            this.tidLabel = new System.Windows.Forms.Label();
+            this.tidNum = new System.Windows.Forms.NumericUpDown();
+            this.sidLabel = new System.Windows.Forms.Label();
+            this.sidNum = new System.Windows.Forms.NumericUpDown();
             this.genderLabel = new System.Windows.Forms.Label();
             this.genderCombo = new System.Windows.Forms.ComboBox();
             this.abilityLabel = new System.Windows.Forms.Label();
@@ -88,6 +92,8 @@ namespace SVSeedFinderPlugin.GUI
             this.searchPanel.SuspendLayout();
             this.speciesGroup.SuspendLayout();
             this.criteriaGroup.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.tidNum)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.sidNum)).BeginInit();
             this.ivGroup.SuspendLayout();
             this.searchOptionsGroup.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.ivHpMin)).BeginInit();
@@ -111,10 +117,10 @@ namespace SVSeedFinderPlugin.GUI
             // Form
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(950, 650);
+            this.ClientSize = new System.Drawing.Size(1000, 650);
             this.Controls.Add(this.mainPanel);
             this.Controls.Add(this.statusStrip);
-            this.MinimumSize = new System.Drawing.Size(950, 650);
+            this.MinimumSize = new System.Drawing.Size(1000, 650);
             this.Name = "Gen9SeedFinderForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "Gen 9 Seed Finder";
@@ -124,7 +130,7 @@ namespace SVSeedFinderPlugin.GUI
             this.mainPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mainPanel.Location = new System.Drawing.Point(0, 0);
             this.mainPanel.Name = "mainPanel";
-            this.mainPanel.Size = new System.Drawing.Size(950, 628);
+            this.mainPanel.Size = new System.Drawing.Size(1000, 628);
             this.mainPanel.TabIndex = 0;
 
             // splitContainer
@@ -232,6 +238,10 @@ namespace SVSeedFinderPlugin.GUI
             this.encounterCombo.TabIndex = 7;
 
             // criteriaGroup
+            this.criteriaGroup.Controls.Add(this.sidNum);
+            this.criteriaGroup.Controls.Add(this.sidLabel);
+            this.criteriaGroup.Controls.Add(this.tidNum);
+            this.criteriaGroup.Controls.Add(this.tidLabel);
             this.criteriaGroup.Controls.Add(this.shinyCombo);
             this.criteriaGroup.Controls.Add(this.shinyLabel);
             this.criteriaGroup.Controls.Add(this.natureCombo);
@@ -242,7 +252,7 @@ namespace SVSeedFinderPlugin.GUI
             this.criteriaGroup.Controls.Add(this.genderLabel);
             this.criteriaGroup.Location = new System.Drawing.Point(8, 164);
             this.criteriaGroup.Name = "criteriaGroup";
-            this.criteriaGroup.Size = new System.Drawing.Size(330, 120);
+            this.criteriaGroup.Size = new System.Drawing.Size(330, 115);
             this.criteriaGroup.TabIndex = 1;
             this.criteriaGroup.TabStop = false;
             this.criteriaGroup.Text = "Search Criteria";
@@ -329,6 +339,36 @@ namespace SVSeedFinderPlugin.GUI
             this.shinyCombo.TabIndex = 7;
             this.shinyCombo.SelectedIndex = 0;
 
+            // tidLabel
+            this.tidLabel.AutoSize = true;
+            this.tidLabel.Location = new System.Drawing.Point(10, 85);
+            this.tidLabel.Name = "tidLabel";
+            this.tidLabel.Size = new System.Drawing.Size(27, 15);
+            this.tidLabel.TabIndex = 8;
+            this.tidLabel.Text = "TID16:";
+
+            // tidNum
+            this.tidNum.Location = new System.Drawing.Point(80, 82);
+            this.tidNum.Maximum = new decimal(new int[] { 65535, 0, 0, 0 });
+            this.tidNum.Name = "tidNum";
+            this.tidNum.Size = new System.Drawing.Size(100, 23);
+            this.tidNum.TabIndex = 9;
+
+            // sidLabel
+            this.sidLabel.AutoSize = true;
+            this.sidLabel.Location = new System.Drawing.Point(190, 85);
+            this.sidLabel.Name = "sidLabel";
+            this.sidLabel.Size = new System.Drawing.Size(27, 15);
+            this.sidLabel.TabIndex = 10;
+            this.sidLabel.Text = "SID16:";
+
+            // sidNum
+            this.sidNum.Location = new System.Drawing.Point(240, 82);
+            this.sidNum.Maximum = new decimal(new int[] { 65535, 0, 0, 0 });
+            this.sidNum.Name = "sidNum";
+            this.sidNum.Size = new System.Drawing.Size(80, 23);
+            this.sidNum.TabIndex = 11;
+
             // ivGroup
             this.ivGroup.Controls.Add(this.ivMaxLabel);
             this.ivGroup.Controls.Add(this.ivMinLabel);
@@ -350,9 +390,9 @@ namespace SVSeedFinderPlugin.GUI
             this.ivGroup.Controls.Add(this.ivHpMax);
             this.ivGroup.Controls.Add(this.ivHpMin);
             this.ivGroup.Controls.Add(this.ivHpLabel);
-            this.ivGroup.Location = new System.Drawing.Point(8, 290);
+            this.ivGroup.Location = new System.Drawing.Point(8, 285);
             this.ivGroup.Name = "ivGroup";
-            this.ivGroup.Size = new System.Drawing.Size(330, 180);
+            this.ivGroup.Size = new System.Drawing.Size(330, 140);
             this.ivGroup.TabIndex = 2;
             this.ivGroup.TabStop = false;
             this.ivGroup.Text = "IV Ranges";
@@ -520,9 +560,9 @@ namespace SVSeedFinderPlugin.GUI
             this.searchOptionsGroup.Controls.Add(this.startSeedLabel);
             this.searchOptionsGroup.Controls.Add(this.maxSeedsNum);
             this.searchOptionsGroup.Controls.Add(this.maxSeedsLabel);
-            this.searchOptionsGroup.Location = new System.Drawing.Point(8, 476);
+            this.searchOptionsGroup.Location = new System.Drawing.Point(8, 431);
             this.searchOptionsGroup.Name = "searchOptionsGroup";
-            this.searchOptionsGroup.Size = new System.Drawing.Size(330, 130);
+            this.searchOptionsGroup.Size = new System.Drawing.Size(330, 125);
             this.searchOptionsGroup.TabIndex = 3;
             this.searchOptionsGroup.TabStop = false;
             this.searchOptionsGroup.Text = "Search Options";
@@ -683,6 +723,8 @@ namespace SVSeedFinderPlugin.GUI
             this.speciesGroup.PerformLayout();
             this.criteriaGroup.ResumeLayout(false);
             this.criteriaGroup.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.tidNum)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.sidNum)).EndInit();
             this.ivGroup.ResumeLayout(false);
             this.ivGroup.PerformLayout();
             this.searchOptionsGroup.ResumeLayout(false);
@@ -771,5 +813,9 @@ namespace SVSeedFinderPlugin.GUI
         private System.Windows.Forms.StatusStrip statusStrip;
         private System.Windows.Forms.ToolStripStatusLabel statusLabel;
         private System.Windows.Forms.ToolStripProgressBar progressBar;
+        private System.Windows.Forms.Label tidLabel;
+        private System.Windows.Forms.NumericUpDown tidNum;
+        private System.Windows.Forms.Label sidLabel;
+        private System.Windows.Forms.NumericUpDown sidNum;
     }
 }
