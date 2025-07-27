@@ -1,0 +1,35 @@
+name: Build and Release
+on:
+  push:
+    paths:
+      - "Directory.Build.props"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+      - name: Restore dependencies
+        run: dotnet restore SVSeedFinderPlugin.sln
+      - name: Build
+        run: dotnet build SVSeedFinderPlugin.sln -c Release --no-restore
+      - name: Extract version
+        id: ver
+        shell: pwsh
+        run: |
+          $version = Select-String -Path Directory.Build.props -Pattern '<Version>(.+)</Version>' | ForEach-Object { $_.Matches.Groups[1].Value }
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ steps.ver.outputs.version }}"
+          name: "SV Seed Finder ${{ steps.ver.outputs.version }}"
+          body: "Automated release for version ${{ steps.ver.outputs.version }}"
+          files: |
+            SVSeedFinderPlugin/bin/Release/net9.0-windows/SVSeedFinderPlugin.dll
