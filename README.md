@@ -11,7 +11,9 @@ The tool supports all raid types including standard Tera Raids, event distributi
 **Author:** [@hexbyt3](https://github.com/hexbyt3)
 
 ## Screenshots
-<img width="1016" height="676" alt="image" src="https://github.com/user-attachments/assets/e3f936e8-b9bf-456e-91ea-614247327fb9" />
+<img width="955" height="683" alt="image" src="https://github.com/user-attachments/assets/ab139f22-ce0d-48ec-bfb7-6ab7b9e03f5c" />
+
+<img width="400" height="412" alt="image" src="https://github.com/user-attachments/assets/2024ccca-a032-4f20-bdce-164f09cd94e7" />
 
 ## Features
 
