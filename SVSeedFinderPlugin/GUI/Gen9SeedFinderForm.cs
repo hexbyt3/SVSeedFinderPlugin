@@ -151,7 +151,9 @@ public sealed partial class Gen9SeedFinderForm : Form
     {
         if (_previewSprite == null || _previewTitle == null || _previewDetails == null ||
             _previewStats == null || _previewMoves == null)
+        {
             return;
+        }
 
         var pk = result.Pokemon;
         var enc = result.Encounter;
