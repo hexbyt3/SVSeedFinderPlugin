@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -29,6 +30,15 @@ public sealed partial class Gen9SeedFinderForm : Form
     private EncounterSource _availableSources;
     private List<ComboItem> _allSpecies = [];
 
+    // Preview panel components
+    private Panel _previewPanel = null!;
+    private PictureBox _previewSprite = null!;
+    private Label _previewTitle = null!;
+    private Label _previewDetails = null!;
+    private Label _previewStats = null!;
+    private Label _previewMoves = null!;
+    private static readonly HttpClient _httpClient = new();
+
     [Flags]
     private enum EncounterSource
     {
@@ -40,23 +50,289 @@ public sealed partial class Gen9SeedFinderForm : Form
         Might = 1 << 4,
     }
 
-    /// <summary>
-    /// Initializes a new instance of the Gen9SeedFinderForm
-    /// </summary>
-    /// <param name="saveFileEditor">Save file provider for trainer info</param>
-    /// <param name="pkmEditor">PKM editor for loading results</param>
     public Gen9SeedFinderForm(ISaveFileProvider saveFileEditor, IPKMView pkmEditor)
     {
         _saveFileEditor = saveFileEditor;
         _pkmEditor = pkmEditor;
         InitializeComponent();
+        InitializePreviewPanel();
         LoadSpeciesList();
         LoadTrainerData();
     }
 
-    /// <summary>
-    /// Loads trainer data from the current save file
-    /// </summary>
+    private void InitializePreviewPanel()
+    {
+        _previewPanel = new Panel
+        {
+            Dock = DockStyle.Bottom,
+            Height = 200,
+            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = SystemColors.Control,
+            Visible = false
+        };
+
+        _previewSprite = new PictureBox
+        {
+            Location = new Point(10, 10),
+            Size = new Size(68, 56),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Transparent,
+            BorderStyle = BorderStyle.FixedSingle
+        };
+
+        _previewTitle = new Label
+        {
+            Location = new Point(85, 10),
+            Size = new Size(250, 20),
+            Font = new Font(Font.FontFamily, 10, FontStyle.Bold)
+        };
+
+        _previewDetails = new Label
+        {
+            Location = new Point(85, 35),
+            Size = new Size(250, 60),
+            AutoSize = false
+        };
+
+        _previewStats = new Label
+        {
+            Location = new Point(340, 10),
+            Size = new Size(180, 180),
+            AutoSize = false,
+            Font = new Font("Consolas", 9)
+        };
+
+        _previewMoves = new Label
+        {
+            Location = new Point(85, 100),
+            Size = new Size(250, 90),
+            AutoSize = false
+        };
+
+        _previewPanel.Controls.AddRange(new Control[] {
+            _previewSprite, _previewTitle, _previewDetails, _previewStats, _previewMoves
+        });
+
+        // Add preview panel to results panel
+        resultsPanel?.Controls.Add(_previewPanel);
+
+        // Adjust grid size when preview is shown
+        if (resultsGrid != null)
+        {
+            resultsGrid.SelectionChanged += ResultsGrid_SelectionChanged;
+        }
+    }
+
+    private void ResultsGrid_SelectionChanged(object? sender, EventArgs e)
+    {
+        if (resultsGrid.SelectedRows.Count == 0 || _previewPanel == null)
+        {
+            if (_previewPanel != null)
+                _previewPanel.Visible = false;
+            return;
+        }
+
+        var rowIndex = resultsGrid.SelectedRows[0].Index;
+        if (rowIndex >= 0 && rowIndex < _results.Count)
+        {
+            var result = _results[rowIndex];
+            UpdatePreviewPanel(result);
+
+            // Adjust grid height to accommodate preview
+            if (!_previewPanel.Visible)
+            {
+                _previewPanel.Visible = true;
+                resultsGrid.Height = resultsPanel.Height - _previewPanel.Height;
+            }
+        }
+    }
+
+    private void UpdatePreviewPanel(SeedResult result)
+    {
+        if (_previewSprite == null || _previewTitle == null || _previewDetails == null ||
+            _previewStats == null || _previewMoves == null)
+            return;
+
+        var pk = result.Pokemon;
+        var enc = result.Encounter;
+
+        // Load sprite asynchronously
+        _ = LoadPokemonSpriteAsync(pk);
+
+        // Set title
+        var speciesName = GameInfo.Strings.specieslist[pk.Species];
+        var formName = pk.Form > 0 ? $" ({FormConverter.GetFormList(pk.Species, GameInfo.Strings.types, GameInfo.Strings.forms, GameInfo.GenderSymbolASCII, EntityContext.Gen9)[pk.Form]})" : "";
+        _previewTitle.Text = $"{speciesName}{formName} {(pk.IsShiny ? "★" : "")}";
+        _previewTitle.ForeColor = pk.IsShiny ? Color.Gold : SystemColors.ControlText;
+
+        // Set details
+        var details = new List<string>
+        {
+            $"Seed: {result.Seed:X8}",
+            $"Nature: {pk.Nature} | Gender: {GetGenderSymbol(pk.Gender)}",
+            $"Ability: {GetAbilityName(pk)} ({GetAbilityType(pk)})",
+            $"Tera Type: {pk.TeraTypeOriginal}"
+        };
+
+        if (enc is EncounterMight9)
+            details.Add("7★ Mighty Raid (Mightiest Mark)");
+        else if (enc is EncounterDist9)
+            details.Add($"{enc.Stars}★ Event Distribution");
+        else
+            details.Add($"{enc.Stars}★ Standard Raid");
+
+        _previewDetails.Text = string.Join("\n", details);
+
+        // Set stats
+        var stats = new[]
+        {
+            "Stats:",
+            $"HP:  {pk.IV_HP,2} IV | {pk.Stat_HPMax,3} Total",
+            $"Atk: {pk.IV_ATK,2} IV | {pk.Stat_ATK,3} Total",
+            $"Def: {pk.IV_DEF,2} IV | {pk.Stat_DEF,3} Total",
+            $"SpA: {pk.IV_SPA,2} IV | {pk.Stat_SPA,3} Total",
+            $"SpD: {pk.IV_SPD,2} IV | {pk.Stat_SPD,3} Total",
+            $"Spe: {pk.IV_SPE,2} IV | {pk.Stat_SPE,3} Total",
+            "",
+            $"Height: {pk.HeightScalar} | Weight: {pk.WeightScalar}"
+        };
+        _previewStats.Text = string.Join("\n", stats);
+
+        // Set moves
+        var moveNames = new List<string>();
+        for (int i = 0; i < 4; i++)
+        {
+            var move = pk.GetMove(i);
+            if (move != 0)
+            {
+                var moveName = GameInfo.Strings.movelist[move];
+                moveNames.Add($"• {moveName}");
+            }
+        }
+        _previewMoves.Text = moveNames.Count > 0 ? "Moves:\n" + string.Join("\n", moveNames) : "";
+    }
+
+    private static string GetGenderSymbol(int gender) => gender switch
+    {
+        0 => "♂",
+        1 => "♀",
+        _ => "-"
+    };
+
+    private static string GetAbilityType(PK9 pk) => pk.AbilityNumber switch
+    {
+        1 => "Ability 1",
+        2 => "Ability 2",
+        4 => "Hidden",
+        _ => "?"
+    };
+
+    private async Task LoadPokemonSpriteAsync(PK9 pk)
+    {
+        try
+        {
+            var url = GetPokemonImageUrl(pk);
+            using var response = await _httpClient.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                using var stream = await response.Content.ReadAsStreamAsync();
+                var image = Image.FromStream(stream);
+
+                // Update UI on main thread
+                if (_previewSprite.InvokeRequired)
+                {
+                    _previewSprite.Invoke(() => _previewSprite.Image = image);
+                }
+                else
+                {
+                    _previewSprite.Image = image;
+                }
+            }
+        }
+        catch
+        {
+            // If image fails to load, just show empty box
+            if (_previewSprite.InvokeRequired)
+            {
+                _previewSprite.Invoke(() => _previewSprite.Image = null);
+            }
+            else
+            {
+                _previewSprite.Image = null;
+            }
+        }
+    }
+
+    private static string GetPokemonImageUrl(PK9 pk)
+    {
+        var baseLink = "https://raw.githubusercontent.com/hexbyt3/HomeImages/master/128x128/poke_capture_0001_000_mf_n_00000000_f_n.png".Split('_');
+
+        // Species number formatting
+        baseLink[2] = pk.Species < 10 ? $"000{pk.Species}" :
+                      pk.Species < 100 ? $"00{pk.Species}" :
+                      pk.Species < 1000 ? $"0{pk.Species}" :
+                      $"{pk.Species}";
+
+        // Form number formatting
+        baseLink[3] = pk.Form < 10 ? $"00{pk.Form}" : $"0{pk.Form}";
+
+        // Gender designation
+        baseLink[4] = pk.PersonalInfo.OnlyFemale ? "fo" :
+                      pk.PersonalInfo.OnlyMale ? "mo" :
+                      pk.PersonalInfo.Genderless ? "uk" :
+                      GetGenderDesignation(pk);
+
+        // Gigantamax (always "n" for raid finder)
+        baseLink[5] = "n";
+
+        // Form argument (always 0 for raid finder)
+        baseLink[6] = "00000000";
+
+        // Shiny status
+        baseLink[8] = pk.IsShiny ? "r.png" : "n.png";
+
+        return string.Join("_", baseLink);
+    }
+
+    private static string GetGenderDesignation(PK9 pk)
+    {
+        // Check for gender-dependent species
+        var genderDependentSpecies = new[]
+        {
+            (int)Species.Venusaur, (int)Species.Butterfree, (int)Species.Rattata, (int)Species.Raticate,
+            (int)Species.Pikachu, (int)Species.Zubat, (int)Species.Golbat, (int)Species.Gloom,
+            (int)Species.Vileplume, (int)Species.Kadabra, (int)Species.Alakazam, (int)Species.Doduo,
+            (int)Species.Dodrio, (int)Species.Hypno, (int)Species.Goldeen, (int)Species.Seaking,
+            (int)Species.Scyther, (int)Species.Magikarp, (int)Species.Gyarados, (int)Species.Eevee,
+            (int)Species.Meganium, (int)Species.Ledyba, (int)Species.Ledian, (int)Species.Xatu,
+            (int)Species.Sudowoodo, (int)Species.Politoed, (int)Species.Aipom, (int)Species.Wooper,
+            (int)Species.Quagsire, (int)Species.Murkrow, (int)Species.Wobbuffet, (int)Species.Girafarig,
+            (int)Species.Gligar, (int)Species.Steelix, (int)Species.Scizor, (int)Species.Heracross,
+            (int)Species.Sneasel, (int)Species.Ursaring, (int)Species.Piloswine, (int)Species.Octillery,
+            (int)Species.Houndoom, (int)Species.Donphan, (int)Species.Torchic, (int)Species.Combusken,
+            (int)Species.Blaziken, (int)Species.Beautifly, (int)Species.Dustox, (int)Species.Ludicolo,
+            (int)Species.Nuzleaf, (int)Species.Shiftry, (int)Species.Swalot, (int)Species.Camerupt,
+            (int)Species.Cacturne, (int)Species.Milotic, (int)Species.Relicanth, (int)Species.Starly,
+            (int)Species.Staravia, (int)Species.Staraptor, (int)Species.Bidoof, (int)Species.Bibarel,
+            (int)Species.Kricketot, (int)Species.Kricketune, (int)Species.Shinx, (int)Species.Luxio,
+            (int)Species.Luxray, (int)Species.Roserade, (int)Species.Combee, (int)Species.Pachirisu,
+            (int)Species.Buizel, (int)Species.Floatzel, (int)Species.Ambipom, (int)Species.Gible,
+            (int)Species.Gabite, (int)Species.Garchomp, (int)Species.Hippopotas, (int)Species.Hippowdon,
+            (int)Species.Croagunk, (int)Species.Toxicroak, (int)Species.Finneon, (int)Species.Lumineon,
+            (int)Species.Snover, (int)Species.Abomasnow, (int)Species.Weavile, (int)Species.Rhyperior,
+            (int)Species.Tangrowth, (int)Species.Mamoswine, (int)Species.Unfezant, (int)Species.Frillish,
+            (int)Species.Jellicent, (int)Species.Pyroar, (int)Species.Meowstic, (int)Species.Indeedee,
+            (int)Species.Basculegion, (int)Species.Oinkologne
+        };
+
+        if (genderDependentSpecies.Contains(pk.Species) && pk.Form == 0)
+        {
+            return pk.Gender == 0 ? "md" : "fd";
+        }
+
+        return "mf";
+    }
+
     private void LoadTrainerData()
     {
         var sav = _saveFileEditor.SAV;
@@ -604,6 +880,13 @@ public sealed partial class Gen9SeedFinderForm : Form
 
         _results.Clear();
         resultsGrid.Rows.Clear();
+
+        // Hide preview panel when starting new search
+        if (_previewPanel != null && _previewPanel.Visible)
+        {
+            _previewPanel.Visible = false;
+            resultsGrid.Height = resultsPanel.Height;
+        }
 
         searchButton.Text = "Stop";
         progressBar.Visible = true;
