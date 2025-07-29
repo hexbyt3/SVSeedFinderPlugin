@@ -451,39 +451,40 @@ public sealed partial class Gen9SeedFinderForm : Form
     /// </summary>
     private void UpdateEncounterList(int species)
     {
+        var form = (byte)(formCombo.SelectedValue as int? ?? 0);
         var allEncounters = new List<ITeraRaid9>();
         _availableSources = EncounterSource.None;
 
         // Check each source and only add if it contains this species
-        var baseEnc = GetEncountersForSpecies(Encounters9.TeraBase, species);
+        var baseEnc = GetEncountersForSpecies(Encounters9.TeraBase, species, form);
         if (baseEnc.Count > 0)
         {
             allEncounters.AddRange(baseEnc);
             _availableSources |= EncounterSource.Base;
         }
 
-        var dlc1Enc = GetEncountersForSpecies(Encounters9.TeraDLC1, species);
+        var dlc1Enc = GetEncountersForSpecies(Encounters9.TeraDLC1, species, form);
         if (dlc1Enc.Count > 0)
         {
             allEncounters.AddRange(dlc1Enc);
             _availableSources |= EncounterSource.DLC1;
         }
 
-        var dlc2Enc = GetEncountersForSpecies(Encounters9.TeraDLC2, species);
+        var dlc2Enc = GetEncountersForSpecies(Encounters9.TeraDLC2, species, form);
         if (dlc2Enc.Count > 0)
         {
             allEncounters.AddRange(dlc2Enc);
             _availableSources |= EncounterSource.DLC2;
         }
 
-        var distEnc = GetEncountersForSpecies(Encounters9.Dist, species);
+        var distEnc = GetEncountersForSpecies(Encounters9.Dist, species, form);
         if (distEnc.Count > 0)
         {
             allEncounters.AddRange(distEnc);
             _availableSources |= EncounterSource.Dist;
         }
 
-        var mightEnc = GetEncountersForSpecies(Encounters9.Might, species);
+        var mightEnc = GetEncountersForSpecies(Encounters9.Might, species, form);
         if (mightEnc.Count > 0)
         {
             allEncounters.AddRange(mightEnc);
@@ -845,9 +846,9 @@ public sealed partial class Gen9SeedFinderForm : Form
     /// <summary>
     /// Filters encounters by species
     /// </summary>
-    private static List<ITeraRaid9> GetEncountersForSpecies(ITeraRaid9[] encounters, int species)
+    private static List<ITeraRaid9> GetEncountersForSpecies(ITeraRaid9[] encounters, int species, byte form)
     {
-        return [.. encounters.Where(e => e.Species == species)];
+        return [.. encounters.Where(e => e.Species == species && IsFormCompatible(e, species, form))];
     }
 
     /// <summary>
@@ -1490,6 +1491,18 @@ public sealed partial class Gen9SeedFinderForm : Form
     private static string GetIVString(PK9 pk)
     {
         return $"{pk.IV_HP}/{pk.IV_ATK}/{pk.IV_DEF}/{pk.IV_SPA}/{pk.IV_SPD}/{pk.IV_SPE}";
+    }
+
+    /// <summary>
+    /// Handles form selection change to update available encounters
+    /// </summary>
+    private void FormCombo_SelectedIndexChanged(object? sender, EventArgs e)
+    {
+        if (speciesCombo.SelectedValue is not int species)
+            return;
+        UpdateEncounterList(species);
+        UpdateSourceDisplay();
+        ValidateCurrentSelection();
     }
 
     /// <summary>
