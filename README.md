@@ -1,3 +1,6 @@
+![GitHub Release](https://img.shields.io/github/v/release/hexbyt3/Svseedfinderplugin)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/hexbyt3/svseedfinderplugin/total?color=violet)
+
 # SV Seed Finder Plugin for PKHeX
 
 A seed finding plugin for PKHeX that helps you search for specific Generation 9 Tera Raid encounters in Pokemon Scarlet & Violet.
