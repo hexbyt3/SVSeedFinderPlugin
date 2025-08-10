@@ -28,6 +28,7 @@ public sealed partial class Gen9SeedFinderForm : Form
     private readonly IPKMView _pkmEditor;
     private CancellationTokenSource? _searchCts;
     private List<SeedResult> _results = [];
+    private Dictionary<int, SeedResult> _gridRowToResult = new(); // Maps grid row index to actual result
     private List<ITeraRaid9> _cachedSpeciesEncounters = [];
     private EncounterSource _availableSources;
     private List<ComboItem> _allSpecies = [];
@@ -135,9 +136,8 @@ public sealed partial class Gen9SeedFinderForm : Form
         }
 
         var rowIndex = resultsGrid.SelectedRows[0].Index;
-        if (rowIndex >= 0 && rowIndex < _results.Count)
+        if (_gridRowToResult.TryGetValue(rowIndex, out var result))
         {
-            var result = _results[rowIndex];
             UpdatePreviewPanel(result);
 
             // Adjust grid height to accommodate preview
@@ -996,6 +996,7 @@ public sealed partial class Gen9SeedFinderForm : Form
 
         _results.Clear();
         resultsGrid.Rows.Clear();
+        _gridRowToResult.Clear();
 
         // Hide preview panel when starting new search
         if (_previewPanel != null && _previewPanel.Visible)
@@ -1331,6 +1332,7 @@ public sealed partial class Gen9SeedFinderForm : Form
         var results = new ConcurrentBag<SeedResult>();
         var resultsLock = new object();
         var orderedResults = new List<SeedResult>();
+        var gridRowToResultMap = new Dictionary<int, SeedResult>(); // Map grid row index to result
         
         long totalSeeds = (long)endSeed - startSeed + 1;
         long seedsChecked = 0;
@@ -1531,11 +1533,8 @@ public sealed partial class Gen9SeedFinderForm : Form
                         }
                     }
                     
-                    // Add to grid in batches to reduce UI overhead
-                    if (results.Count <= 100 || results.Count % 10 == 0)
-                    {
-                        AddResultToGrid(result);
-                    }
+                    // Add to grid in real-time for immediate feedback
+                    AddResultToGrid(result);
 
                     // Break early if we're at the last seed to avoid overflow
                     if (seed == chunkEnd)
@@ -1548,23 +1547,13 @@ public sealed partial class Gen9SeedFinderForm : Form
             // Search was cancelled
         }
 
-        // Sort results by seed and update UI
+        // Sort results by seed for the _results list (used for export)
         orderedResults = [.. results.OrderBy(r => r.Seed).Take(maxResults)];
         _results = orderedResults;
 
-        // Add any remaining results to the grid
+        // Update final status
         this.Invoke(() =>
         {
-            // Clear and re-add all results in order if we have more than 100
-            if (orderedResults.Count > 100)
-            {
-                resultsGrid.Rows.Clear();
-                foreach (var result in orderedResults)
-                {
-                    AddResultToGridDirect(result);
-                }
-            }
-            
             statusLabel.Text = $"Found {orderedResults.Count} matches after checking {seedsChecked:N0} seeds (used {coreCount} cores)";
             progressBar.Value = 100;
         });
@@ -1573,7 +1562,7 @@ public sealed partial class Gen9SeedFinderForm : Form
     /// <summary>
     /// Adds a result directly to the grid without invoking (for use when already on UI thread)
     /// </summary>
-    private void AddResultToGridDirect(SeedResult result)
+    private int AddResultToGridDirect(SeedResult result)
     {
         var row = resultsGrid.Rows.Add(
             $"{result.Seed:X8}",
@@ -1585,6 +1574,8 @@ public sealed partial class Gen9SeedFinderForm : Form
             result.Pokemon.TeraTypeOriginal.ToString(),
             $"{result.Pokemon.Scale}"
         );
+        
+        _gridRowToResult[row] = result; // Store the mapping
 
         if (result.Pokemon.IsShiny)
         {
@@ -1596,6 +1587,8 @@ public sealed partial class Gen9SeedFinderForm : Form
             resultsGrid.Rows[row].DefaultCellStyle.SelectionBackColor = Color.DarkGoldenrod;
             resultsGrid.Rows[row].DefaultCellStyle.SelectionForeColor = Color.White;
         }
+        
+        return row;
     }
 
     /// <summary>
@@ -1821,6 +1814,8 @@ public sealed partial class Gen9SeedFinderForm : Form
                 result.Pokemon.TeraTypeOriginal.ToString(),
                 $"{result.Pokemon.Scale}"
             );
+            
+            _gridRowToResult[row] = result; // Store the mapping
 
             if (result.Pokemon.IsShiny)
             {
@@ -1863,10 +1858,8 @@ public sealed partial class Gen9SeedFinderForm : Form
     /// </summary>
     private void ResultsGrid_CellDoubleClick(object? sender, DataGridViewCellEventArgs e)
     {
-        if (e.RowIndex < 0 || e.RowIndex >= _results.Count)
+        if (e.RowIndex < 0 || !_gridRowToResult.TryGetValue(e.RowIndex, out var result))
             return;
-
-        var result = _results[e.RowIndex];
         _pkmEditor.PopulateFields(result.Pokemon);
 
         WinFormsUtil.Alert($"Loaded {result.Pokemon.Nickname}!\nSeed: {result.Seed:X8}");
