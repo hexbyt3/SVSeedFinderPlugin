@@ -22,8 +22,8 @@ The tool supports all raid types including standard Tera Raids, event distributi
 - **📊 Performance Monitoring** - Status bar shows active core count and real-time processing speed
 
 ## Screenshots
-<img width="752" height="512" alt="image" src="https://github.com/user-attachments/assets/1ab80f84-9c92-425a-b0d7-7abc40acff77" />
-<img width="400" height="412" alt="image" src="https://github.com/user-attachments/assets/2024ccca-a032-4f20-bdce-164f09cd94e7" />
+<img width="1393" height="767" alt="image" src="https://github.com/user-attachments/assets/8562db48-a062-4b15-91b2-9f22804f1706" />
+
 
 ## Features
 
