@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using PKHeX.Core;
 using SVSeedFinderPlugin.Helpers;
+using static PKHeX.Core.ShinyUtil;
 
 namespace SVSeedFinderPlugin.GUI;
 
@@ -1204,8 +1205,82 @@ public sealed partial class Gen9SeedFinderForm : Form
                     continue;
             }
 
+            // Create the generation parameters
+            var pi = PersonalTable.SV[encounter.Species, encounter.Form];
+            var genderRatio = pi.Gender;
+            byte height = 0;
+            byte weight = 0;
+            SizeType9 scaleType = SizeType9.RANDOM;
+            byte scale = 0;
+            IndividualValueSet ivs = default;
+            
+            // Extract encounter-specific properties
+            if (encounter is EncounterMight9 might)
+            {
+                genderRatio = might.Gender switch
+                {
+                    0 => PersonalInfo.RatioMagicMale,
+                    1 => PersonalInfo.RatioMagicFemale,
+                    2 => PersonalInfo.RatioMagicGenderless,
+                    _ => pi.Gender
+                };
+                scaleType = might.ScaleType;
+                scale = might.Scale;
+                ivs = might.IVs;
+            }
+            else if (encounter is EncounterDist9 dist)
+            {
+                scaleType = dist.ScaleType;
+                scale = dist.Scale;
+                ivs = dist.IVs;
+            }
+            
+            var param = new GenerateParam9(
+                encounter.Species,
+                genderRatio,
+                encounter.FlawlessIVCount,
+                1, // roll count - PKHeX uses 1 for all raid types
+                height,
+                weight,
+                scaleType,
+                scale,
+                encounter.Ability,
+                encounter.Shiny,
+                encounter is IFixedNature fn1 ? fn1.Nature : Nature.Random,
+                ivs
+            );
+            
+            // Get TID/SID for shiny check
+            ushort tid = (ushort)tidNum.Value;
+            ushort sid = (ushort)sidNum.Value;
+            uint id32 = ((uint)sid << 16) | tid;
+            
+            // Check if this seed will produce a shiny
+            bool willBeShiny = WillBeShiny(seed, param, id32);
+            
+            // If we're searching for shiny only and this won't be shiny, skip early
+            if (criteria.Shiny == Shiny.Always && !willBeShiny)
+                continue;
+            
+            // If we're searching for non-shiny only and this will be shiny, skip early
+            if (criteria.Shiny == Shiny.Never && willBeShiny)
+                continue;
+            
+            // For Shiny.Random encounters, adjust criteria to match what will actually be generated
+            var adjustedCriteria = criteria;
+            if (param.Shiny == Shiny.Random)
+            {
+                adjustedCriteria = new EncounterCriteria
+                {
+                    Gender = criteria.Gender,
+                    Ability = criteria.Ability,
+                    Nature = criteria.Nature,
+                    Shiny = willBeShiny ? Shiny.Always : Shiny.Never
+                };
+            }
+            
             // Generate a Pokemon from this seed
-            var pk = GenerateRaidPokemon(encounter, seed, criteria, form);
+            var pk = GenerateRaidPokemon(encounter, seed, adjustedCriteria, form);
             if (pk == null)
                 continue;
 
@@ -1213,7 +1288,6 @@ public sealed partial class Gen9SeedFinderForm : Form
             if (encounter is IEncounterFormRandom { IsRandomUnspecificForm: true } && pk.Form != form)
                 continue;
 
-            // Check if the generated Pokemon matches our shiny criteria
             bool matchesShiny = criteria.Shiny switch
             {
                 Shiny.Never => !pk.IsShiny,
@@ -1342,6 +1416,32 @@ public sealed partial class Gen9SeedFinderForm : Form
     }
 
     /// <summary>
+    /// Pre-checks if a seed will produce a shiny Pokemon for the given encounter parameters
+    /// </summary>
+    private bool WillBeShiny(uint seed, GenerateParam9 param, uint id32)
+    {
+        // Only relevant for Shiny.Random encounters
+        if (param.Shiny != Shiny.Random)
+            return param.Shiny == Shiny.Always;
+
+        var rand = new Xoroshiro128Plus(seed);
+        _ = rand.NextInt(); // EC
+        var fakeTID = (uint)rand.NextInt();
+        uint pid = (uint)rand.NextInt();
+        
+        // Check if it rolls shiny within the allowed roll count
+        for (int i = 1; i <= param.RollCount; i++)
+        {
+            var xor = ShinyUtil.GetShinyXor(pid, fakeTID);
+            if (xor < 16) // Is shiny
+                return true;
+            if (i < param.RollCount)
+                pid = (uint)rand.NextInt();
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Generates a Pokemon from the encounter and seed using the exact raid generation method
     /// </summary>
     private PK9? GenerateRaidPokemon(ITeraRaid9 encounter, uint seed, EncounterCriteria criteria, byte desiredForm)
@@ -1364,7 +1464,6 @@ public sealed partial class Gen9SeedFinderForm : Form
         // Extract encounter-specific properties
         if (encounter is EncounterMight9 might)
         {
-            // Might encounters have special gender handling
             genderRatio = might.Gender switch
             {
                 0 => PersonalInfo.RatioMagicMale,
@@ -1382,16 +1481,12 @@ public sealed partial class Gen9SeedFinderForm : Form
             scale = dist.Scale;
             ivs = dist.IVs;
         }
-        else if (encounter is EncounterTera9)
-        {
-            // Base raids don't have special scale/IV properties
-        }
 
         var param = new GenerateParam9(
             encounter.Species,
             genderRatio,
             encounter.FlawlessIVCount,
-            1, // roll count
+            1, // roll count - PKHeX uses 1 for all raid types
             height,
             weight,
             scaleType,
