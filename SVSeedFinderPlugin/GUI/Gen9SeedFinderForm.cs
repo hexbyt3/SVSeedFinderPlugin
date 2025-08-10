@@ -666,6 +666,9 @@ public sealed partial class Gen9SeedFinderForm : Form
             abilityCombo.BackColor = SystemColors.Window;
         }
 
+        // Check scale constraints
+        ValidateScaleConstraints(selectedEncounter, warnings);
+
         // Update status with warnings
         if (warnings.Count > 0)
         {
@@ -678,6 +681,102 @@ public sealed partial class Gen9SeedFinderForm : Form
             statusLabel.ForeColor = SystemColors.ControlText;
         }
     }
+
+    /// <summary>
+    /// Validates scale constraints for the selected encounter
+    /// </summary>
+    private void ValidateScaleConstraints(ITeraRaid9 selectedEncounter, List<string> warnings)
+    {
+        // Extract scale type and value based on encounter type
+        SizeType9? scaleType = null;
+        byte? fixedScale = null;
+        
+        if (selectedEncounter is EncounterMight9 might)
+        {
+            scaleType = might.ScaleType;
+            if (might.ScaleType == SizeType9.VALUE)
+                fixedScale = might.Scale;
+        }
+        else if (selectedEncounter is EncounterDist9 dist)
+        {
+            scaleType = dist.ScaleType;
+            if (dist.ScaleType == SizeType9.VALUE)
+                fixedScale = dist.Scale;
+        }
+        
+        // If there's no scale constraint, reset highlights and return
+        if (scaleType == null || scaleType == SizeType9.RANDOM)
+        {
+            scaleMin.BackColor = SystemColors.Window;
+            scaleMax.BackColor = SystemColors.Window;
+            return;
+        }
+        
+        var minValue = (byte)scaleMin.Value;
+        var maxValue = (byte)scaleMax.Value;
+        bool hasInvalidScale = false;
+        
+        if (scaleType == SizeType9.VALUE && fixedScale.HasValue)
+        {
+            // Fixed scale value - check if the range includes it
+            if (minValue > fixedScale.Value || maxValue < fixedScale.Value)
+            {
+                warnings.Add($"This encounter has fixed scale: {fixedScale.Value}");
+                hasInvalidScale = true;
+            }
+        }
+        else if (scaleType != SizeType9.RANDOM)
+        {
+            // Size category constraint - check if range overlaps with the category
+            var (categoryMin, categoryMax) = GetScaleRange(scaleType.Value);
+            
+            // Check if there's any overlap between user range and category range
+            if (maxValue < categoryMin || minValue > categoryMax)
+            {
+                warnings.Add($"This encounter has scale type: {GetScaleTypeName(scaleType.Value)} ({categoryMin}-{categoryMax})");
+                hasInvalidScale = true;
+            }
+        }
+        
+        // Update visual feedback
+        if (hasInvalidScale)
+        {
+            scaleMin.BackColor = Color.MistyRose;
+            scaleMax.BackColor = Color.MistyRose;
+        }
+        else
+        {
+            scaleMin.BackColor = SystemColors.Window;
+            scaleMax.BackColor = SystemColors.Window;
+        }
+    }
+
+    /// <summary>
+    /// Gets the scale range for a given SizeType9
+    /// </summary>
+    private static (byte min, byte max) GetScaleRange(SizeType9 type) => type switch
+    {
+        SizeType9.XS => (0, 15),
+        SizeType9.S => (16, 47),
+        SizeType9.M => (48, 207),
+        SizeType9.L => (208, 239),
+        SizeType9.XL => (240, 255),
+        _ => (0, 255)
+    };
+
+    /// <summary>
+    /// Gets the display name for a SizeType9
+    /// </summary>
+    private static string GetScaleTypeName(SizeType9 type) => type switch
+    {
+        SizeType9.XS => "Extra Small",
+        SizeType9.S => "Small",
+        SizeType9.M => "Average",
+        SizeType9.L => "Large",
+        SizeType9.XL => "Extra Large",
+        SizeType9.VALUE => "Fixed",
+        _ => "Random"
+    };
 
     /// <summary>
     /// Validates IV constraints and highlights invalid selections
@@ -786,6 +885,8 @@ public sealed partial class Gen9SeedFinderForm : Form
         genderCombo.BackColor = SystemColors.Window;
         natureCombo.BackColor = SystemColors.Window;
         abilityCombo.BackColor = SystemColors.Window;
+        scaleMin.BackColor = SystemColors.Window;
+        scaleMax.BackColor = SystemColors.Window;
         ResetIVHighlights();
     }
 
@@ -1006,7 +1107,61 @@ public sealed partial class Gen9SeedFinderForm : Form
             }
         }
 
+        // Check scale constraints
+        ValidateScaleSearch(selectedEncounter, errors);
+
         return errors;
+    }
+
+    /// <summary>
+    /// Validates search criteria against scale constraints
+    /// </summary>
+    private void ValidateScaleSearch(ITeraRaid9 selectedEncounter, List<string> errors)
+    {
+        // Extract scale type and value based on encounter type
+        SizeType9? scaleType = null;
+        byte? fixedScale = null;
+        
+        if (selectedEncounter is EncounterMight9 might)
+        {
+            scaleType = might.ScaleType;
+            if (might.ScaleType == SizeType9.VALUE)
+                fixedScale = might.Scale;
+        }
+        else if (selectedEncounter is EncounterDist9 dist)
+        {
+            scaleType = dist.ScaleType;
+            if (dist.ScaleType == SizeType9.VALUE)
+                fixedScale = dist.Scale;
+        }
+        
+        // If there's no scale constraint, nothing to validate
+        if (scaleType == null || scaleType == SizeType9.RANDOM)
+            return;
+        
+        var minValue = (byte)scaleMin.Value;
+        var maxValue = (byte)scaleMax.Value;
+        
+        if (scaleType == SizeType9.VALUE && fixedScale.HasValue)
+        {
+            // Fixed scale value - check if the range includes it
+            if (minValue > fixedScale.Value || maxValue < fixedScale.Value)
+            {
+                errors.Add($"• This encounter always has scale {fixedScale.Value}, but your range is {minValue}-{maxValue}");
+            }
+        }
+        else if (scaleType != SizeType9.RANDOM)
+        {
+            // Size category constraint - check if range overlaps with the category
+            var (categoryMin, categoryMax) = GetScaleRange(scaleType.Value);
+            
+            // Check if there's any overlap between user range and category range
+            if (maxValue < categoryMin || minValue > categoryMax)
+            {
+                var typeName = GetScaleTypeName(scaleType.Value);
+                errors.Add($"• This encounter always has {typeName} scale ({categoryMin}-{categoryMax}), but your range is {minValue}-{maxValue}");
+            }
+        }
     }
 
     /// <summary>
