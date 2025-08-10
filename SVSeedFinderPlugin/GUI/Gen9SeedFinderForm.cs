@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -1281,7 +1282,6 @@ public sealed partial class Gen9SeedFinderForm : Form
     private void SearchSeeds(int species, byte form, EncounterCriteria criteria, ITeraRaid9? specificEncounter, CancellationToken token)
     {
         var maxResults = (int)maxSeedsNum.Value;
-        var results = new List<SeedResult>();
         var ivRanges = GetIVRanges();
 
         // Parse seed range from UI
@@ -1318,186 +1318,284 @@ public sealed partial class Gen9SeedFinderForm : Form
             return;
         }
 
-        uint seedsChecked = 0;
-        uint lastProgressUpdate = 0;
+        // Use parallel processing with all available CPU cores
+        SearchSeedsParallel(species, form, criteria, specificEncounter, startSeed, endSeed, maxResults, ivRanges, token);
+    }
 
-        for (uint seed = startSeed; seed <= endSeed && results.Count < maxResults && !token.IsCancellationRequested; seed++)
+    /// <summary>
+    /// Parallel implementation of seed searching using all CPU cores
+    /// </summary>
+    private void SearchSeedsParallel(int species, byte form, EncounterCriteria criteria, ITeraRaid9? specificEncounter,
+        uint startSeed, uint endSeed, int maxResults, IVRange[] ivRanges, CancellationToken token)
+    {
+        var results = new ConcurrentBag<SeedResult>();
+        var resultsLock = new object();
+        var orderedResults = new List<SeedResult>();
+        
+        long totalSeeds = (long)endSeed - startSeed + 1;
+        long seedsChecked = 0;
+        long lastProgressUpdate = 0;
+        var foundEnough = false;
+
+        // Determine optimal chunk size based on CPU cores
+        int coreCount = Environment.ProcessorCount;
+        int chunkSize = Math.Max(10000, (int)(totalSeeds / (coreCount * 10))); // At least 10000 seeds per chunk
+        
+        // Create parallel options with cancellation token
+        var parallelOptions = new ParallelOptions
         {
-            seedsChecked++;
+            CancellationToken = token,
+            MaxDegreeOfParallelism = coreCount
+        };
 
-            // Update progress every 10000 seeds to avoid UI slowdown
-            if (seedsChecked - lastProgressUpdate >= 10000)
+        try
+        {
+            // Process seeds in parallel chunks
+            Parallel.For(0, (totalSeeds + chunkSize - 1) / chunkSize, parallelOptions, chunkIndex =>
             {
-                lastProgressUpdate = seedsChecked;
-                this.Invoke(() =>
+                // Calculate chunk boundaries
+                uint chunkStart = (uint)(startSeed + chunkIndex * chunkSize);
+                uint chunkEnd = Math.Min(endSeed, (uint)(chunkStart + chunkSize - 1));
+                
+                // Process chunk
+                for (uint seed = chunkStart; seed <= chunkEnd && !foundEnough && !token.IsCancellationRequested; seed++)
                 {
-                    // Calculate progress based on seeds checked vs total possible
-                    var progressPercent = (int)((seedsChecked / (double)(endSeed - startSeed + 1)) * 100);
-                    progressBar.Value = Math.Min(progressPercent, 100);
-                    statusLabel.Text = $"Seed: {seed:X8} | Checked {seedsChecked:N0} ({progressPercent:F2}%), found {results.Count}";
-                });
-            }
+                    // Increment seeds checked atomically
+                    var currentChecked = Interlocked.Increment(ref seedsChecked);
+                    
+                    // Update progress periodically (less frequently for parallel to avoid contention)
+                    if (currentChecked - Interlocked.Read(ref lastProgressUpdate) >= 50000)
+                    {
+                        Interlocked.Exchange(ref lastProgressUpdate, currentChecked);
+                        this.Invoke(() =>
+                        {
+                            var progressPercent = (int)((currentChecked / (double)totalSeeds) * 100);
+                            progressBar.Value = Math.Min(progressPercent, 100);
+                            statusLabel.Text = $"Using {coreCount} cores | Checked {currentChecked:N0} ({progressPercent:F2}%), found {results.Count}";
+                        });
+                    }
 
-            // Check if this seed produces a matching encounter
-            ITeraRaid9? encounter;
-            if (specificEncounter != null)
-            {
-                // If user selected a specific encounter, check if it's form-compatible
-                if (!IsFormCompatible(specificEncounter, species, form))
-                    continue;
+                    // Check if this seed produces a matching encounter
+                    ITeraRaid9? encounter;
+                    if (specificEncounter != null)
+                    {
+                        // If user selected a specific encounter, check if it's form-compatible
+                        if (!IsFormCompatible(specificEncounter, species, form))
+                            continue;
 
-                // Check if this seed can generate this encounter
-                if (!specificEncounter.CanBeEncountered(seed))
-                    continue;
+                        // Check if this seed can generate this encounter
+                        if (!specificEncounter.CanBeEncountered(seed))
+                            continue;
 
-                encounter = specificEncounter;
-            }
-            else
-            {
-                // Find any matching encounter for this species/form
-                encounter = FindMatchingEncounter(seed, form);
-                if (encounter == null)
-                    continue;
-            }
+                        encounter = specificEncounter;
+                    }
+                    else
+                    {
+                        // Find any matching encounter for this species/form
+                        encounter = FindMatchingEncounter(seed, form);
+                        if (encounter == null)
+                            continue;
+                    }
 
-            // Create the generation parameters
-            var pi = PersonalTable.SV[encounter.Species, encounter.Form];
-            var genderRatio = pi.Gender;
-            byte height = 0;
-            byte weight = 0;
-            SizeType9 scaleType = SizeType9.RANDOM;
-            byte scale = 0;
-            IndividualValueSet ivs = default;
+                    // Create the generation parameters
+                    var pi = PersonalTable.SV[encounter.Species, encounter.Form];
+                    var genderRatio = pi.Gender;
+                    byte height = 0;
+                    byte weight = 0;
+                    SizeType9 scaleType = SizeType9.RANDOM;
+                    byte scale = 0;
+                    IndividualValueSet ivs = default;
+                    
+                    // Extract encounter-specific properties
+                    if (encounter is EncounterMight9 might)
+                    {
+                        genderRatio = might.Gender switch
+                        {
+                            0 => PersonalInfo.RatioMagicMale,
+                            1 => PersonalInfo.RatioMagicFemale,
+                            2 => PersonalInfo.RatioMagicGenderless,
+                            _ => pi.Gender
+                        };
+                        scaleType = might.ScaleType;
+                        scale = might.Scale;
+                        ivs = might.IVs;
+                    }
+                    else if (encounter is EncounterDist9 dist)
+                    {
+                        scaleType = dist.ScaleType;
+                        scale = dist.Scale;
+                        ivs = dist.IVs;
+                    }
             
-            // Extract encounter-specific properties
-            if (encounter is EncounterMight9 might)
-            {
-                genderRatio = might.Gender switch
-                {
-                    0 => PersonalInfo.RatioMagicMale,
-                    1 => PersonalInfo.RatioMagicFemale,
-                    2 => PersonalInfo.RatioMagicGenderless,
-                    _ => pi.Gender
-                };
-                scaleType = might.ScaleType;
-                scale = might.Scale;
-                ivs = might.IVs;
-            }
-            else if (encounter is EncounterDist9 dist)
-            {
-                scaleType = dist.ScaleType;
-                scale = dist.Scale;
-                ivs = dist.IVs;
-            }
+                    var param = new GenerateParam9(
+                        encounter.Species,
+                        genderRatio,
+                        encounter.FlawlessIVCount,
+                        1, // roll count - PKHeX uses 1 for all raid types
+                        height,
+                        weight,
+                        scaleType,
+                        scale,
+                        encounter.Ability,
+                        encounter.Shiny,
+                        encounter is IFixedNature fn1 ? fn1.Nature : Nature.Random,
+                        ivs
+                    );
+                    
+                    // Get TID/SID for shiny check
+                    ushort tid = (ushort)tidNum.Value;
+                    ushort sid = (ushort)sidNum.Value;
+                    uint id32 = ((uint)sid << 16) | tid;
+                    
+                    // Check if this seed will produce a shiny
+                    bool willBeShiny = WillBeShiny(seed, param, id32);
+                    
+                    // If we're searching for shiny only and this won't be shiny, skip early
+                    if (criteria.Shiny == Shiny.Always && !willBeShiny)
+                        continue;
+                    
+                    // If we're searching for non-shiny only and this will be shiny, skip early
+                    if (criteria.Shiny == Shiny.Never && willBeShiny)
+                        continue;
             
-            var param = new GenerateParam9(
-                encounter.Species,
-                genderRatio,
-                encounter.FlawlessIVCount,
-                1, // roll count - PKHeX uses 1 for all raid types
-                height,
-                weight,
-                scaleType,
-                scale,
-                encounter.Ability,
-                encounter.Shiny,
-                encounter is IFixedNature fn1 ? fn1.Nature : Nature.Random,
-                ivs
-            );
-            
-            // Get TID/SID for shiny check
-            ushort tid = (ushort)tidNum.Value;
-            ushort sid = (ushort)sidNum.Value;
-            uint id32 = ((uint)sid << 16) | tid;
-            
-            // Check if this seed will produce a shiny
-            bool willBeShiny = WillBeShiny(seed, param, id32);
-            
-            // If we're searching for shiny only and this won't be shiny, skip early
-            if (criteria.Shiny == Shiny.Always && !willBeShiny)
-                continue;
-            
-            // If we're searching for non-shiny only and this will be shiny, skip early
-            if (criteria.Shiny == Shiny.Never && willBeShiny)
-                continue;
-            
-            // For Shiny.Random encounters, adjust criteria to match what will actually be generated
-            var adjustedCriteria = criteria;
-            if (param.Shiny == Shiny.Random)
-            {
-                adjustedCriteria = new EncounterCriteria
-                {
-                    Gender = criteria.Gender,
-                    Ability = criteria.Ability,
-                    Nature = criteria.Nature,
-                    Shiny = willBeShiny ? Shiny.Always : Shiny.Never
-                };
-            }
-            
-            // Generate a Pokemon from this seed
-            var pk = GenerateRaidPokemon(encounter, seed, adjustedCriteria, form);
-            if (pk == null)
-                continue;
+                    // For Shiny.Random encounters, adjust criteria to match what will actually be generated
+                    var adjustedCriteria = criteria;
+                    if (param.Shiny == Shiny.Random)
+                    {
+                        adjustedCriteria = new EncounterCriteria
+                        {
+                            Gender = criteria.Gender,
+                            Ability = criteria.Ability,
+                            Nature = criteria.Nature,
+                            Shiny = willBeShiny ? Shiny.Always : Shiny.Never
+                        };
+                    }
+                    
+                    // Generate a Pokemon from this seed
+                    var pk = GenerateRaidPokemon(encounter, seed, adjustedCriteria, form);
+                    if (pk == null)
+                        continue;
 
-            // For random form encounters, verify the generated form matches what the user is searching for
-            if (encounter is IEncounterFormRandom { IsRandomUnspecificForm: true } && pk.Form != form)
-                continue;
+                    // For random form encounters, verify the generated form matches what the user is searching for
+                    if (encounter is IEncounterFormRandom { IsRandomUnspecificForm: true } && pk.Form != form)
+                        continue;
 
-            bool matchesShiny = criteria.Shiny switch
-            {
-                Shiny.Never => !pk.IsShiny,
-                Shiny.Always => pk.IsShiny,
-                Shiny.AlwaysSquare => pk.IsShiny && pk.ShinyXor == 0,
-                Shiny.AlwaysStar => pk.IsShiny && pk.ShinyXor != 0,
-                _ => true // Random accepts any
-            };
+                    bool matchesShiny = criteria.Shiny switch
+                    {
+                        Shiny.Never => !pk.IsShiny,
+                        Shiny.Always => pk.IsShiny,
+                        Shiny.AlwaysSquare => pk.IsShiny && pk.ShinyXor == 0,
+                        Shiny.AlwaysStar => pk.IsShiny && pk.ShinyXor != 0,
+                        _ => true // Random accepts any
+                    };
 
-            if (!matchesShiny)
-                continue;
+                    if (!matchesShiny)
+                        continue;
 
-            // Check other criteria
-            if (criteria.Gender != Gender.Random && pk.Gender != (int)criteria.Gender)
-                continue;
+                    // Check other criteria
+                    if (criteria.Gender != Gender.Random && pk.Gender != (int)criteria.Gender)
+                        continue;
 
-            if (criteria.Nature != Nature.Random && pk.Nature != criteria.Nature)
-                continue;
+                    if (criteria.Nature != Nature.Random && pk.Nature != criteria.Nature)
+                        continue;
 
-            if (!CheckIVRanges(pk, ivRanges))
-                continue;
+                    if (!CheckIVRanges(pk, ivRanges))
+                        continue;
 
-            // Check ability if specified
-            if (criteria.Ability != AbilityPermission.Any12H && !CheckAbilityCriteria(pk, criteria.Ability))
-                continue;
+                    // Check ability if specified
+                    if (criteria.Ability != AbilityPermission.Any12H && !CheckAbilityCriteria(pk, criteria.Ability))
+                        continue;
 
-            // Check Scale filter (Gen9 specific)
-            var scaleMin = (byte)this.scaleMin.Value;
-            var scaleMax = (byte)this.scaleMax.Value;
-            if (pk.Scale < scaleMin || pk.Scale > scaleMax)
-                continue;
+                    // Check Scale filter (Gen9 specific)
+                    var scaleMin = (byte)this.scaleMin.Value;
+                    var scaleMax = (byte)this.scaleMax.Value;
+                    if (pk.Scale < scaleMin || pk.Scale > scaleMax)
+                        continue;
 
-            // Add to results
-            var result = new SeedResult
-            {
-                Seed = seed,
-                Encounter = encounter,
-                Pokemon = pk
-            };
+                    // Add to results
+                    var result = new SeedResult
+                    {
+                        Seed = seed,
+                        Encounter = encounter,
+                        Pokemon = pk
+                    };
 
-            results.Add(result);
-            AddResultToGrid(result);
+                    results.Add(result);
+                    
+                    // Check if we've found enough results
+                    lock (resultsLock)
+                    {
+                        if (results.Count >= maxResults)
+                        {
+                            foundEnough = true;
+                        }
+                    }
+                    
+                    // Add to grid in batches to reduce UI overhead
+                    if (results.Count <= 100 || results.Count % 10 == 0)
+                    {
+                        AddResultToGrid(result);
+                    }
 
-            // Break early if we're at the last seed to avoid overflow
-            if (seed == endSeed)
-                break;
+                    // Break early if we're at the last seed to avoid overflow
+                    if (seed == chunkEnd)
+                        break;
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // Search was cancelled
         }
 
-        _results = results;
+        // Sort results by seed and update UI
+        orderedResults = [.. results.OrderBy(r => r.Seed).Take(maxResults)];
+        _results = orderedResults;
 
+        // Add any remaining results to the grid
         this.Invoke(() =>
         {
-            statusLabel.Text = $"Found {results.Count} matches after checking {seedsChecked:N0} seeds";
+            // Clear and re-add all results in order if we have more than 100
+            if (orderedResults.Count > 100)
+            {
+                resultsGrid.Rows.Clear();
+                foreach (var result in orderedResults)
+                {
+                    AddResultToGridDirect(result);
+                }
+            }
+            
+            statusLabel.Text = $"Found {orderedResults.Count} matches after checking {seedsChecked:N0} seeds (used {coreCount} cores)";
             progressBar.Value = 100;
         });
+    }
+
+    /// <summary>
+    /// Adds a result directly to the grid without invoking (for use when already on UI thread)
+    /// </summary>
+    private void AddResultToGridDirect(SeedResult result)
+    {
+        var row = resultsGrid.Rows.Add(
+            $"{result.Seed:X8}",
+            $"{result.Encounter.Stars}★",
+            result.Pokemon.IsShiny ? "★" : "",
+            result.Pokemon.Nature.ToString(),
+            GetAbilityName(result.Pokemon),
+            GetIVString(result.Pokemon),
+            result.Pokemon.TeraTypeOriginal.ToString(),
+            $"{result.Pokemon.Scale}"
+        );
+
+        if (result.Pokemon.IsShiny)
+        {
+            // Use a darker gold color that works better with dark themes
+            resultsGrid.Rows[row].DefaultCellStyle.BackColor = Color.FromArgb(64, 64, 32);
+            resultsGrid.Rows[row].DefaultCellStyle.ForeColor = Color.Gold;
+
+            // Ensure the selection colors are still visible for shiny rows
+            resultsGrid.Rows[row].DefaultCellStyle.SelectionBackColor = Color.DarkGoldenrod;
+            resultsGrid.Rows[row].DefaultCellStyle.SelectionForeColor = Color.White;
+        }
     }
 
     /// <summary>
