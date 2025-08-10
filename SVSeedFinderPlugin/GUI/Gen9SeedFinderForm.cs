@@ -109,9 +109,9 @@ public sealed partial class Gen9SeedFinderForm : Form
             AutoSize = false
         };
 
-        _previewPanel.Controls.AddRange(new Control[] {
+        _previewPanel.Controls.AddRange([
             _previewSprite, _previewTitle, _previewDetails, _previewStats, _previewMoves
-        });
+        ]);
 
         // Add preview panel to results panel
         resultsPanel?.Controls.Add(_previewPanel);
@@ -196,7 +196,8 @@ public sealed partial class Gen9SeedFinderForm : Form
             $"SpD: {pk.IV_SPD,2} IV | {pk.Stat_SPD,3} Total",
             $"Spe: {pk.IV_SPE,2} IV | {pk.Stat_SPE,3} Total",
             "",
-            $"Height: {pk.HeightScalar} | Weight: {pk.WeightScalar}"
+            $"Height: {pk.HeightScalar} | Weight: {pk.WeightScalar}",
+            $"Scale: {pk.Scale} ({GetScaleCategory(pk.Scale)})"
         };
         _previewStats.Text = string.Join("\n", stats);
 
@@ -219,6 +220,19 @@ public sealed partial class Gen9SeedFinderForm : Form
         0 => "♂",
         1 => "♀",
         _ => "-"
+    };
+
+    private static string GetScaleCategory(byte scale) => scale switch
+    {
+        0 => "XXXS",
+        >= 1 and <= 24 => "XXS",
+        >= 25 and <= 59 => "XS",
+        >= 60 and <= 99 => "S",
+        >= 100 and <= 155 => "AV",
+        >= 156 and <= 195 => "L",
+        >= 196 and <= 230 => "XL",
+        >= 231 and <= 254 => "XXL",
+        255 => "XXXL"
     };
 
     private static string GetAbilityType(PK9 pk) => pk.AbilityNumber switch
@@ -406,7 +420,6 @@ public sealed partial class Gen9SeedFinderForm : Form
         if (speciesCombo.SelectedValue is not int species)
             return;
 
-        UpdateFormList(species);
         UpdateEncounterList(species);
         UpdateSourceDisplay();
         ValidateCurrentSelection();
@@ -434,57 +447,45 @@ public sealed partial class Gen9SeedFinderForm : Form
             : "No encounters found";
     }
 
-    /// <summary>
-    /// Updates the form list for the selected species
-    /// </summary>
-    private void UpdateFormList(int species)
-    {
-        var forms = FormConverter.GetFormList((ushort)species, GameInfo.Strings.types, GameInfo.Strings.forms, GameInfo.GenderSymbolASCII, EntityContext.Gen9);
-
-        formCombo.DisplayMember = "Text";
-        formCombo.ValueMember = "Value";
-        formCombo.DataSource = forms.Select((f, i) => new ComboItem(f, i)).ToList();
-    }
 
     /// <summary>
     /// Updates the encounter list for the selected species
     /// </summary>
     private void UpdateEncounterList(int species)
     {
-        var form = (byte)(formCombo.SelectedValue as int? ?? 0);
         var allEncounters = new List<ITeraRaid9>();
         _availableSources = EncounterSource.None;
 
-        // Check each source and only add if it contains this species
-        var baseEnc = GetEncountersForSpecies(Encounters9.TeraBase, species, form);
+        // Get ALL encounters for this species (all forms)
+        var baseEnc = GetAllEncountersForSpecies(Encounters9.TeraBase, species);
         if (baseEnc.Count > 0)
         {
             allEncounters.AddRange(baseEnc);
             _availableSources |= EncounterSource.Base;
         }
 
-        var dlc1Enc = GetEncountersForSpecies(Encounters9.TeraDLC1, species, form);
+        var dlc1Enc = GetAllEncountersForSpecies(Encounters9.TeraDLC1, species);
         if (dlc1Enc.Count > 0)
         {
             allEncounters.AddRange(dlc1Enc);
             _availableSources |= EncounterSource.DLC1;
         }
 
-        var dlc2Enc = GetEncountersForSpecies(Encounters9.TeraDLC2, species, form);
+        var dlc2Enc = GetAllEncountersForSpecies(Encounters9.TeraDLC2, species);
         if (dlc2Enc.Count > 0)
         {
             allEncounters.AddRange(dlc2Enc);
             _availableSources |= EncounterSource.DLC2;
         }
 
-        var distEnc = GetEncountersForSpecies(Encounters9.Dist, species, form);
+        var distEnc = GetAllEncountersForSpecies(Encounters9.Dist, species);
         if (distEnc.Count > 0)
         {
             allEncounters.AddRange(distEnc);
             _availableSources |= EncounterSource.Dist;
         }
 
-        var mightEnc = GetEncountersForSpecies(Encounters9.Might, species, form);
+        var mightEnc = GetAllEncountersForSpecies(Encounters9.Might, species);
         if (mightEnc.Count > 0)
         {
             allEncounters.AddRange(mightEnc);
@@ -844,7 +845,15 @@ public sealed partial class Gen9SeedFinderForm : Form
     };
 
     /// <summary>
-    /// Filters encounters by species
+    /// Gets all encounters for a species (all forms)
+    /// </summary>
+    private static List<ITeraRaid9> GetAllEncountersForSpecies(ITeraRaid9[] encounters, int species)
+    {
+        return [.. encounters.Where(e => e.Species == species)];
+    }
+
+    /// <summary>
+    /// Filters encounters by species and form
     /// </summary>
     private static List<ITeraRaid9> GetEncountersForSpecies(ITeraRaid9[] encounters, int species, byte form)
     {
@@ -877,9 +886,10 @@ public sealed partial class Gen9SeedFinderForm : Form
             return;
         }
 
-        var form = (byte)(formCombo.SelectedValue as int? ?? 0);
-        var criteria = GetCriteria();
         var selectedEncounter = (encounterCombo.SelectedItem as EncounterItem)?.Encounter;
+        // Use form from selected encounter if specific encounter is selected, otherwise search all forms (0)
+        var form = selectedEncounter?.Form ?? 0;
+        var criteria = GetCriteria();
 
         _results.Clear();
         resultsGrid.Rows.Clear();
@@ -1230,6 +1240,12 @@ public sealed partial class Gen9SeedFinderForm : Form
             if (criteria.Ability != AbilityPermission.Any12H && !CheckAbilityCriteria(pk, criteria.Ability))
                 continue;
 
+            // Check Scale filter (Gen9 specific)
+            var scaleMin = (byte)this.scaleMin.Value;
+            var scaleMax = (byte)this.scaleMax.Value;
+            if (pk.Scale < scaleMin || pk.Scale > scaleMax)
+                continue;
+
             // Add to results
             var result = new SeedResult
             {
@@ -1454,7 +1470,8 @@ public sealed partial class Gen9SeedFinderForm : Form
                 result.Pokemon.Nature.ToString(),
                 GetAbilityName(result.Pokemon),
                 GetIVString(result.Pokemon),
-                result.Pokemon.TeraTypeOriginal.ToString()
+                result.Pokemon.TeraTypeOriginal.ToString(),
+                $"{result.Pokemon.Scale}"
             );
 
             if (result.Pokemon.IsShiny)
@@ -1494,18 +1511,6 @@ public sealed partial class Gen9SeedFinderForm : Form
     }
 
     /// <summary>
-    /// Handles form selection change to update available encounters
-    /// </summary>
-    private void FormCombo_SelectedIndexChanged(object? sender, EventArgs e)
-    {
-        if (speciesCombo.SelectedValue is not int species)
-            return;
-        UpdateEncounterList(species);
-        UpdateSourceDisplay();
-        ValidateCurrentSelection();
-    }
-
-    /// <summary>
     /// Handles double-clicking a result in the grid
     /// </summary>
     private void ResultsGrid_CellDoubleClick(object? sender, DataGridViewCellEventArgs e)
@@ -1542,13 +1547,13 @@ public sealed partial class Gen9SeedFinderForm : Form
         try
         {
             using var writer = new System.IO.StreamWriter(sfd.FileName);
-            writer.WriteLine($"Seed,Stars,Shiny,Nature,Ability,IVs,TeraType,TID,SID");
+            writer.WriteLine($"Seed,Stars,Shiny,Nature,Ability,IVs,TeraType,Scale,TID,SID");
 
             foreach (var result in _results)
             {
                 writer.WriteLine($"{result.Seed:X8},{result.Encounter.Stars}★,{(result.Pokemon.IsShiny ? "Yes" : "No")}," +
                                $"{result.Pokemon.Nature},{GetAbilityName(result.Pokemon)},{GetIVString(result.Pokemon)}," +
-                               $"{result.Pokemon.TeraTypeOriginal},{result.Pokemon.TID16},{result.Pokemon.SID16}");
+                               $"{result.Pokemon.TeraTypeOriginal},{result.Pokemon.Scale},{result.Pokemon.TID16},{result.Pokemon.SID16}");
             }
 
             WinFormsUtil.Alert("Export successful!");
@@ -1591,13 +1596,23 @@ public sealed partial class Gen9SeedFinderForm : Form
             var type = GetEncounterType(encounter);
             var formName = "";
 
-            // Add form name if it's not the base form and not a random form
-            if (encounter.Form != 0 && encounter is not IEncounterFormRandom { IsRandomUnspecificForm: true })
+            // Always show form name if it's not the base form
+            if (encounter.Form != 0)
             {
                 var forms = FormConverter.GetFormList((ushort)encounter.Species, GameInfo.Strings.types,
                     GameInfo.Strings.forms, GameInfo.GenderSymbolASCII, EntityContext.Gen9);
                 if (encounter.Form < forms.Length)
-                    formName = $" ({forms[encounter.Form]})";
+                {
+                    var form = forms[encounter.Form];
+                    // Clean up form name if needed
+                    if (!string.IsNullOrEmpty(form) && form != "-")
+                        formName = $" ({form})";
+                }
+            }
+            // For random form encounters, indicate it
+            else if (encounter is IEncounterFormRandom { IsRandomUnspecificForm: true })
+            {
+                formName = " (Random Form)";
             }
 
             return $"{encounter.Stars}★ {type}{formName}";

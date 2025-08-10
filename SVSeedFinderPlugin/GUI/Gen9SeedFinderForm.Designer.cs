@@ -45,6 +45,13 @@ namespace SVSeedFinderPlugin.GUI
             this.shinyLabel = new System.Windows.Forms.Label();
             this.shinyCombo = new System.Windows.Forms.ComboBox();
 
+            this.scaleGroup = new System.Windows.Forms.GroupBox();
+            this.scaleLabel = new System.Windows.Forms.Label();
+            this.scaleMinLabel = new System.Windows.Forms.Label();
+            this.scaleMaxLabel = new System.Windows.Forms.Label();
+            this.scaleMin = new System.Windows.Forms.NumericUpDown();
+            this.scaleMax = new System.Windows.Forms.NumericUpDown();
+
             this.ivGroup = new System.Windows.Forms.GroupBox();
             this.ivHpLabel = new System.Windows.Forms.Label();
             this.ivHpMin = new System.Windows.Forms.NumericUpDown();
@@ -94,6 +101,9 @@ namespace SVSeedFinderPlugin.GUI
             this.criteriaGroup.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.tidNum)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.sidNum)).BeginInit();
+            this.scaleGroup.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.scaleMin)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.scaleMax)).BeginInit();
             this.ivGroup.SuspendLayout();
             this.searchOptionsGroup.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.ivHpMin)).BeginInit();
@@ -147,6 +157,7 @@ namespace SVSeedFinderPlugin.GUI
             this.searchPanel.AutoScroll = true;
             this.searchPanel.Controls.Add(this.searchOptionsGroup);
             this.searchPanel.Controls.Add(this.ivGroup);
+            this.searchPanel.Controls.Add(this.scaleGroup);
             this.searchPanel.Controls.Add(this.criteriaGroup);
             this.searchPanel.Controls.Add(this.speciesGroup);
             this.searchPanel.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -161,13 +172,11 @@ namespace SVSeedFinderPlugin.GUI
             this.speciesGroup.Controls.Add(this.speciesSearchLabel);
             this.speciesGroup.Controls.Add(this.encounterCombo);
             this.speciesGroup.Controls.Add(this.encounterLabel);
-            this.speciesGroup.Controls.Add(this.formCombo);
-            this.speciesGroup.Controls.Add(this.formLabel);
             this.speciesGroup.Controls.Add(this.speciesCombo);
             this.speciesGroup.Controls.Add(this.speciesLabel);
             this.speciesGroup.Location = new System.Drawing.Point(8, 8);
             this.speciesGroup.Name = "speciesGroup";
-            this.speciesGroup.Size = new System.Drawing.Size(330, 150);
+            this.speciesGroup.Size = new System.Drawing.Size(330, 120);
             this.speciesGroup.TabIndex = 0;
             this.speciesGroup.TabStop = false;
             this.speciesGroup.Text = "Target Pokémon";
@@ -212,6 +221,7 @@ namespace SVSeedFinderPlugin.GUI
             this.formLabel.Size = new System.Drawing.Size(38, 15);
             this.formLabel.TabIndex = 4;
             this.formLabel.Text = "Form:";
+            this.formLabel.Visible = false;
 
             // formCombo
             this.formCombo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
@@ -220,10 +230,11 @@ namespace SVSeedFinderPlugin.GUI
             this.formCombo.Name = "formCombo";
             this.formCombo.Size = new System.Drawing.Size(240, 23);
             this.formCombo.TabIndex = 5;
+            this.formCombo.Visible = false;
 
             // encounterLabel
             this.encounterLabel.AutoSize = true;
-            this.encounterLabel.Location = new System.Drawing.Point(10, 115);
+            this.encounterLabel.Location = new System.Drawing.Point(10, 85);
             this.encounterLabel.Name = "encounterLabel";
             this.encounterLabel.Size = new System.Drawing.Size(64, 15);
             this.encounterLabel.TabIndex = 6;
@@ -232,7 +243,7 @@ namespace SVSeedFinderPlugin.GUI
             // encounterCombo
             this.encounterCombo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.encounterCombo.FormattingEnabled = true;
-            this.encounterCombo.Location = new System.Drawing.Point(80, 112);
+            this.encounterCombo.Location = new System.Drawing.Point(80, 82);
             this.encounterCombo.Name = "encounterCombo";
             this.encounterCombo.Size = new System.Drawing.Size(240, 23);
             this.encounterCombo.TabIndex = 7;
@@ -250,7 +261,7 @@ namespace SVSeedFinderPlugin.GUI
             this.criteriaGroup.Controls.Add(this.abilityLabel);
             this.criteriaGroup.Controls.Add(this.genderCombo);
             this.criteriaGroup.Controls.Add(this.genderLabel);
-            this.criteriaGroup.Location = new System.Drawing.Point(8, 164);
+            this.criteriaGroup.Location = new System.Drawing.Point(8, 134);
             this.criteriaGroup.Name = "criteriaGroup";
             this.criteriaGroup.Size = new System.Drawing.Size(330, 115);
             this.criteriaGroup.TabIndex = 1;
@@ -369,6 +380,59 @@ namespace SVSeedFinderPlugin.GUI
             this.sidNum.Size = new System.Drawing.Size(80, 23);
             this.sidNum.TabIndex = 11;
 
+            // scaleGroup
+            this.scaleGroup.Controls.Add(this.scaleMaxLabel);
+            this.scaleGroup.Controls.Add(this.scaleMinLabel);
+            this.scaleGroup.Controls.Add(this.scaleMax);
+            this.scaleGroup.Controls.Add(this.scaleMin);
+            this.scaleGroup.Controls.Add(this.scaleLabel);
+            this.scaleGroup.Location = new System.Drawing.Point(8, 255);
+            this.scaleGroup.Name = "scaleGroup";
+            this.scaleGroup.Size = new System.Drawing.Size(330, 60);
+            this.scaleGroup.TabIndex = 2;
+            this.scaleGroup.TabStop = false;
+            this.scaleGroup.Text = "Scale Filter (Gen9)";
+
+            // scaleLabel
+            this.scaleLabel.AutoSize = true;
+            this.scaleLabel.Location = new System.Drawing.Point(10, 30);
+            this.scaleLabel.Name = "scaleLabel";
+            this.scaleLabel.Size = new System.Drawing.Size(37, 15);
+            this.scaleLabel.TabIndex = 0;
+            this.scaleLabel.Text = "Scale:";
+
+            // scaleMinLabel
+            this.scaleMinLabel.AutoSize = true;
+            this.scaleMinLabel.Location = new System.Drawing.Point(55, 30);
+            this.scaleMinLabel.Name = "scaleMinLabel";
+            this.scaleMinLabel.Size = new System.Drawing.Size(31, 15);
+            this.scaleMinLabel.TabIndex = 1;
+            this.scaleMinLabel.Text = "Min:";
+
+            // scaleMin
+            this.scaleMin.Location = new System.Drawing.Point(90, 28);
+            this.scaleMin.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
+            this.scaleMin.Name = "scaleMin";
+            this.scaleMin.Size = new System.Drawing.Size(60, 23);
+            this.scaleMin.TabIndex = 2;
+            this.scaleMin.Value = new decimal(new int[] { 0, 0, 0, 0 });
+
+            // scaleMaxLabel
+            this.scaleMaxLabel.AutoSize = true;
+            this.scaleMaxLabel.Location = new System.Drawing.Point(160, 30);
+            this.scaleMaxLabel.Name = "scaleMaxLabel";
+            this.scaleMaxLabel.Size = new System.Drawing.Size(33, 15);
+            this.scaleMaxLabel.TabIndex = 3;
+            this.scaleMaxLabel.Text = "Max:";
+
+            // scaleMax
+            this.scaleMax.Location = new System.Drawing.Point(200, 28);
+            this.scaleMax.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
+            this.scaleMax.Name = "scaleMax";
+            this.scaleMax.Size = new System.Drawing.Size(60, 23);
+            this.scaleMax.TabIndex = 4;
+            this.scaleMax.Value = new decimal(new int[] { 255, 0, 0, 0 });
+
             // ivGroup
             this.ivGroup.Controls.Add(this.ivMaxLabel);
             this.ivGroup.Controls.Add(this.ivMinLabel);
@@ -390,7 +454,7 @@ namespace SVSeedFinderPlugin.GUI
             this.ivGroup.Controls.Add(this.ivHpMax);
             this.ivGroup.Controls.Add(this.ivHpMin);
             this.ivGroup.Controls.Add(this.ivHpLabel);
-            this.ivGroup.Location = new System.Drawing.Point(8, 285);
+            this.ivGroup.Location = new System.Drawing.Point(8, 321);
             this.ivGroup.Name = "ivGroup";
             this.ivGroup.Size = new System.Drawing.Size(330, 140);
             this.ivGroup.TabIndex = 2;
@@ -560,7 +624,7 @@ namespace SVSeedFinderPlugin.GUI
             this.searchOptionsGroup.Controls.Add(this.startSeedLabel);
             this.searchOptionsGroup.Controls.Add(this.maxSeedsNum);
             this.searchOptionsGroup.Controls.Add(this.maxSeedsLabel);
-            this.searchOptionsGroup.Location = new System.Drawing.Point(8, 431);
+            this.searchOptionsGroup.Location = new System.Drawing.Point(8, 467);
             this.searchOptionsGroup.Name = "searchOptionsGroup";
             this.searchOptionsGroup.Size = new System.Drawing.Size(330, 125);
             this.searchOptionsGroup.TabIndex = 3;
@@ -655,7 +719,8 @@ namespace SVSeedFinderPlugin.GUI
             new System.Windows.Forms.DataGridViewTextBoxColumn { HeaderText = "Nature", Width = 80 },
             new System.Windows.Forms.DataGridViewTextBoxColumn { HeaderText = "Ability", Width = 100 },
             new System.Windows.Forms.DataGridViewTextBoxColumn { HeaderText = "IVs", Width = 120 },
-            new System.Windows.Forms.DataGridViewTextBoxColumn { HeaderText = "Tera", Width = 80 }
+            new System.Windows.Forms.DataGridViewTextBoxColumn { HeaderText = "Tera", Width = 80 },
+            new System.Windows.Forms.DataGridViewTextBoxColumn { HeaderText = "Scale", Width = 60 }
             });
             this.resultsGrid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.resultsGrid.Location = new System.Drawing.Point(0, 0);
@@ -725,6 +790,10 @@ namespace SVSeedFinderPlugin.GUI
             this.criteriaGroup.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.tidNum)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.sidNum)).EndInit();
+            this.scaleGroup.ResumeLayout(false);
+            this.scaleGroup.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.scaleMin)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.scaleMax)).EndInit();
             this.ivGroup.ResumeLayout(false);
             this.ivGroup.PerformLayout();
             this.searchOptionsGroup.ResumeLayout(false);
@@ -776,6 +845,13 @@ namespace SVSeedFinderPlugin.GUI
         private System.Windows.Forms.ComboBox natureCombo;
         private System.Windows.Forms.Label shinyLabel;
         private System.Windows.Forms.ComboBox shinyCombo;
+
+        private System.Windows.Forms.GroupBox scaleGroup;
+        private System.Windows.Forms.Label scaleLabel;
+        private System.Windows.Forms.Label scaleMinLabel;
+        private System.Windows.Forms.Label scaleMaxLabel;
+        private System.Windows.Forms.NumericUpDown scaleMin;
+        private System.Windows.Forms.NumericUpDown scaleMax;
 
         private System.Windows.Forms.GroupBox ivGroup;
         private System.Windows.Forms.Label ivMinLabel;
