@@ -61,6 +61,18 @@ public sealed partial class Gen9SeedFinderForm : Form
         InitializePreviewPanel();
         LoadSpeciesList();
         LoadTrainerData();
+
+        // Cancel search when form is closing
+        FormClosing += OnFormClosing;
+    }
+
+    /// <summary>
+    /// Handles form closing to cancel any running search
+    /// </summary>
+    private void OnFormClosing(object? sender, FormClosingEventArgs e)
+    {
+        // Cancel any running search operation
+        _searchCts?.Cancel();
     }
 
     private void InitializePreviewPanel()
@@ -1017,12 +1029,18 @@ public sealed partial class Gen9SeedFinderForm : Form
         }
         catch (OperationCanceledException)
         {
-            statusLabel.Text = "Search cancelled";
+            if (!IsDisposed && !statusLabel.IsDisposed)
+                statusLabel.Text = "Search cancelled";
         }
         finally
         {
-            searchButton.Text = "Search";
-            progressBar.Visible = false;
+            if (!IsDisposed)
+            {
+                if (!searchButton.IsDisposed)
+                    searchButton.Text = "Search";
+                if (!progressBar.IsDisposed)
+                    progressBar.Visible = false;
+            }
             _searchCts?.Dispose();
             _searchCts = null;
         }
@@ -1369,12 +1387,22 @@ public sealed partial class Gen9SeedFinderForm : Form
                     if (currentChecked - Interlocked.Read(ref lastProgressUpdate) >= 50000)
                     {
                         Interlocked.Exchange(ref lastProgressUpdate, currentChecked);
-                        this.Invoke(() =>
+                        try
                         {
-                            var progressPercent = (int)((currentChecked / (double)totalSeeds) * 100);
-                            progressBar.Value = Math.Min(progressPercent, 100);
-                            statusLabel.Text = $"Using {coreCount} cores | Checked {currentChecked:N0} ({progressPercent:F2}%), found {results.Count}";
-                        });
+                            this.Invoke(() =>
+                            {
+                                if (!IsDisposed && !progressBar.IsDisposed && !statusLabel.IsDisposed)
+                                {
+                                    var progressPercent = (int)((currentChecked / (double)totalSeeds) * 100);
+                                    progressBar.Value = Math.Min(progressPercent, 100);
+                                    statusLabel.Text = $"Using {coreCount} cores | Checked {currentChecked:N0} ({progressPercent:F2}%), found {results.Count}";
+                                }
+                            });
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                            // Form was disposed while updating, ignore
+                        }
                     }
 
                     // Check if this seed produces a matching encounter
@@ -1552,11 +1580,21 @@ public sealed partial class Gen9SeedFinderForm : Form
         _results = orderedResults;
 
         // Update final status
-        this.Invoke(() =>
+        try
         {
-            statusLabel.Text = $"Found {orderedResults.Count} matches after checking {seedsChecked:N0} seeds (used {coreCount} cores)";
-            progressBar.Value = 100;
-        });
+            this.Invoke(() =>
+            {
+                if (!IsDisposed && !statusLabel.IsDisposed && !progressBar.IsDisposed)
+                {
+                    statusLabel.Text = $"Found {orderedResults.Count} matches after checking {seedsChecked:N0} seeds (used {coreCount} cores)";
+                    progressBar.Value = 100;
+                }
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // Form was disposed while updating, ignore
+        }
     }
 
     /// <summary>
@@ -1802,32 +1840,42 @@ public sealed partial class Gen9SeedFinderForm : Form
     /// </summary>
     private void AddResultToGrid(SeedResult result)
     {
-        this.Invoke(() =>
+        try
         {
-            var row = resultsGrid.Rows.Add(
-                $"{result.Seed:X8}",
-                $"{result.Encounter.Stars}★",
-                result.Pokemon.IsShiny ? "★" : "",
-                result.Pokemon.Nature.ToString(),
-                GetAbilityName(result.Pokemon),
-                GetIVString(result.Pokemon),
-                result.Pokemon.TeraTypeOriginal.ToString(),
-                $"{result.Pokemon.Scale}"
-            );
-            
-            _gridRowToResult[row] = result; // Store the mapping
-
-            if (result.Pokemon.IsShiny)
+            this.Invoke(() =>
             {
-                // Use a darker gold color that works better with dark themes
-                resultsGrid.Rows[row].DefaultCellStyle.BackColor = Color.FromArgb(64, 64, 32);
-                resultsGrid.Rows[row].DefaultCellStyle.ForeColor = Color.Gold;
+                if (!IsDisposed && !resultsGrid.IsDisposed)
+                {
+                    var row = resultsGrid.Rows.Add(
+                        $"{result.Seed:X8}",
+                        $"{result.Encounter.Stars}★",
+                        result.Pokemon.IsShiny ? "★" : "",
+                        result.Pokemon.Nature.ToString(),
+                        GetAbilityName(result.Pokemon),
+                        GetIVString(result.Pokemon),
+                        result.Pokemon.TeraTypeOriginal.ToString(),
+                        $"{result.Pokemon.Scale}"
+                    );
 
-                // Ensure the selection colors are still visible for shiny rows
-                resultsGrid.Rows[row].DefaultCellStyle.SelectionBackColor = Color.DarkGoldenrod;
-                resultsGrid.Rows[row].DefaultCellStyle.SelectionForeColor = Color.White;
-            }
-        });
+                    _gridRowToResult[row] = result; // Store the mapping
+
+                    if (result.Pokemon.IsShiny)
+                    {
+                        // Use a darker gold color that works better with dark themes
+                        resultsGrid.Rows[row].DefaultCellStyle.BackColor = Color.FromArgb(64, 64, 32);
+                        resultsGrid.Rows[row].DefaultCellStyle.ForeColor = Color.Gold;
+
+                        // Ensure the selection colors are still visible for shiny rows
+                        resultsGrid.Rows[row].DefaultCellStyle.SelectionBackColor = Color.DarkGoldenrod;
+                        resultsGrid.Rows[row].DefaultCellStyle.SelectionForeColor = Color.White;
+                    }
+                }
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // Form was disposed while updating, ignore
+        }
     }
 
     /// <summary>
