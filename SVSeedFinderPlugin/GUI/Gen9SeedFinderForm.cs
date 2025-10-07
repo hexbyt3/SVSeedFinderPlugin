@@ -366,8 +366,11 @@ public sealed partial class Gen9SeedFinderForm : Form
     private void LoadTrainerData()
     {
         var sav = _saveFileEditor.SAV;
-        tidNum.Value = sav.TID16;
-        sidNum.Value = sav.SID16;
+        // Gen 9 uses the Gen 7+ display format (6-digit TID, 4-digit SID)
+        // Convert from internal 16-bit values to display format
+        uint id32 = ((uint)sav.SID16 << 16) | sav.TID16;
+        tidNum.Value = id32 % 1000000; // TID7 (0-999999)
+        sidNum.Value = id32 / 1000000; // SID7 (0-4294)
     }
 
     /// <summary>
@@ -1473,9 +1476,10 @@ public sealed partial class Gen9SeedFinderForm : Form
                     );
                     
                     // Get TID/SID for shiny check
-                    ushort tid = (ushort)tidNum.Value;
-                    ushort sid = (ushort)sidNum.Value;
-                    uint id32 = ((uint)sid << 16) | tid;
+                    // Convert from display format (TID7/SID7) to ID32, then to 16-bit values
+                    uint id32 = ((uint)sidNum.Value * 1000000) + (uint)tidNum.Value;
+                    ushort tid = (ushort)(id32 & 0xFFFF);
+                    ushort sid = (ushort)(id32 >> 16);
                     
                     // Check if this seed will produce a shiny
                     bool willBeShiny = WillBeShiny(seed, param, id32);
@@ -1733,9 +1737,8 @@ public sealed partial class Gen9SeedFinderForm : Form
         var pi = PersonalTable.SV[encounter.Species, encounter.Form];
 
         // Get TID/SID from UI instead of save file
-        ushort tid = (ushort)tidNum.Value;
-        ushort sid = (ushort)sidNum.Value;
-        uint id32 = ((uint)sid << 16) | tid;
+        // Convert from display format (TID7/SID7) to ID32
+        uint id32 = ((uint)sidNum.Value * 1000000) + (uint)tidNum.Value;
 
         // Get proper parameters based on encounter type
         byte genderRatio = pi.Gender;
@@ -1940,9 +1943,14 @@ public sealed partial class Gen9SeedFinderForm : Form
 
             foreach (var result in _results)
             {
+                // Convert to display format (Gen 7+ format)
+                uint pokemonId32 = ((uint)result.Pokemon.SID16 << 16) | result.Pokemon.TID16;
+                uint displayTID = pokemonId32 % 1000000;
+                uint displaySID = pokemonId32 / 1000000;
+
                 writer.WriteLine($"{result.Seed:X8},{result.Encounter.Stars}★,{(result.Pokemon.IsShiny ? "Yes" : "No")}," +
                                $"{result.Pokemon.Nature},{GetAbilityName(result.Pokemon)},{GetIVString(result.Pokemon)}," +
-                               $"{result.Pokemon.TeraTypeOriginal},{result.Pokemon.Scale},{result.Pokemon.TID16},{result.Pokemon.SID16}");
+                               $"{result.Pokemon.TeraTypeOriginal},{result.Pokemon.Scale},{displayTID},{displaySID}");
             }
 
             WinFormsUtil.Alert("Export successful!");
