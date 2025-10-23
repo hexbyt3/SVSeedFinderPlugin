@@ -965,7 +965,7 @@ public sealed partial class Gen9SeedFinderForm : Form
     /// <summary>
     /// Gets all encounters for a species (all forms)
     /// </summary>
-    private static List<ITeraRaid9> GetAllEncountersForSpecies(ITeraRaid9[] encounters, int species)
+    private static List<ITeraRaid9> GetAllEncountersForSpecies(IReadOnlyList<ITeraRaid9> encounters, int species)
     {
         return [.. encounters.Where(e => e.Species == species)];
     }
@@ -973,7 +973,7 @@ public sealed partial class Gen9SeedFinderForm : Form
     /// <summary>
     /// Filters encounters by species and form
     /// </summary>
-    private static List<ITeraRaid9> GetEncountersForSpecies(ITeraRaid9[] encounters, int species, byte form)
+    private static List<ITeraRaid9> GetEncountersForSpecies(IReadOnlyList<ITeraRaid9> encounters, int species, byte form)
     {
         return [.. encounters.Where(e => e.Species == species && IsFormCompatible(e, species, form))];
     }
