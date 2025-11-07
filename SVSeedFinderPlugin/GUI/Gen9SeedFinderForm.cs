@@ -1784,7 +1784,7 @@ public sealed partial class Gen9SeedFinderForm : Form
             ivs
         );
 
-        int language = (int)Language.GetSafeLanguage(9, (LanguageID)_saveFileEditor.SAV.Language);
+        int language = (int)Language.GetSafeLanguage789((LanguageID)_saveFileEditor.SAV.Language);
 
         var pk = new PK9
         {
