@@ -644,7 +644,7 @@ public sealed partial class Gen9SeedFinderForm : Form
         }
 
         // Check nature constraints
-        if (selectedEncounter is IFixedNature fn && fn.Nature != Nature.Random)
+        if (selectedEncounter is IFixedNature fn && fn.Nature.IsFixed())
         {
             var requiredNature = (int)fn.Nature + 1; // +1 because index 0 is "Any"
 
@@ -1089,7 +1089,7 @@ public sealed partial class Gen9SeedFinderForm : Form
         }
 
         // Check nature
-        if (selectedEncounter is IFixedNature fn && fn.Nature != Nature.Random && natureCombo.SelectedIndex != 0)
+        if (selectedEncounter is IFixedNature fn && fn.Nature.IsFixed() && natureCombo.SelectedIndex != 0)
         {
             var selectedNature = (Nature)(natureCombo.SelectedIndex - 1);
             if (fn.Nature != selectedNature)
@@ -1483,11 +1483,11 @@ public sealed partial class Gen9SeedFinderForm : Form
                     
                     // Check if this seed will produce a shiny
                     bool willBeShiny = WillBeShiny(seed, param, id32);
-                    
-                    // If we're searching for shiny only and this won't be shiny, skip early
-                    if (criteria.Shiny == Shiny.Always && !willBeShiny)
+
+                    // If we're searching for any shiny type and this won't be shiny, skip early
+                    if (criteria.Shiny.IsShiny() && !willBeShiny)
                         continue;
-                    
+
                     // If we're searching for non-shiny only and this will be shiny, skip early
                     if (criteria.Shiny == Shiny.Never && willBeShiny)
                         continue;
@@ -1514,23 +1514,14 @@ public sealed partial class Gen9SeedFinderForm : Form
                     if (encounter is IEncounterFormRandom { IsRandomUnspecificForm: true } && pk.Form != form)
                         continue;
 
-                    bool matchesShiny = criteria.Shiny switch
-                    {
-                        Shiny.Never => !pk.IsShiny,
-                        Shiny.Always => pk.IsShiny,
-                        Shiny.AlwaysSquare => pk.IsShiny && pk.ShinyXor == 0,
-                        Shiny.AlwaysStar => pk.IsShiny && pk.ShinyXor != 0,
-                        _ => true // Random accepts any
-                    };
-
-                    if (!matchesShiny)
+                    if (criteria.IsSpecifiedShiny() && !criteria.IsSatisfiedShiny(ShinyUtil.GetShinyXor(pk.PID, pk.ID32), 16))
                         continue;
 
                     // Check other criteria
                     if (criteria.Gender != Gender.Random && pk.Gender != (int)criteria.Gender)
                         continue;
 
-                    if (criteria.Nature != Nature.Random && pk.Nature != criteria.Nature)
+                    if (criteria.Nature.IsFixed() && pk.Nature != criteria.Nature)
                         continue;
 
                     if (!CheckIVRanges(pk, ivRanges))
