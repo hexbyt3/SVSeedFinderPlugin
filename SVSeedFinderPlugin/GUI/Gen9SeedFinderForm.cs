@@ -591,29 +591,15 @@ public sealed partial class Gen9SeedFinderForm : Form
 
         var warnings = new List<string>();
 
-        // Check shiny constraints
-        if (selectedEncounter.Shiny != Shiny.Random)
+        // Lock shiny dropdown for shiny-locked encounters
+        if (selectedEncounter.Shiny == Shiny.Never)
         {
-            var requiredShiny = selectedEncounter.Shiny switch
-            {
-                Shiny.Never => 1, // "Never" index
-                Shiny.Always => 2, // "Always" index
-                _ => 0
-            };
-
-            if (shinyCombo.SelectedIndex != 0 && shinyCombo.SelectedIndex != requiredShiny)
-            {
-                warnings.Add($"This encounter is {(selectedEncounter.Shiny == Shiny.Never ? "never shiny" : "always shiny")}");
-                shinyCombo.BackColor = Color.MistyRose;
-            }
-            else
-            {
-                shinyCombo.BackColor = SystemColors.Window;
-            }
+            shinyCombo.SelectedIndex = 0; // No
+            shinyCombo.Enabled = false;
         }
         else
         {
-            shinyCombo.BackColor = SystemColors.Window;
+            shinyCombo.Enabled = true;
         }
 
         // Check IV constraints
@@ -920,6 +906,7 @@ public sealed partial class Gen9SeedFinderForm : Form
     /// </summary>
     private void ResetConstraintHighlights()
     {
+        shinyCombo.Enabled = true;
         shinyCombo.BackColor = SystemColors.Window;
         genderCombo.BackColor = SystemColors.Window;
         natureCombo.BackColor = SystemColors.Window;
