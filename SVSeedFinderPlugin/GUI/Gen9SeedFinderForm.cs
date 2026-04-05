@@ -378,12 +378,25 @@ public sealed partial class Gen9SeedFinderForm : Form
     /// </summary>
     private void LoadSpeciesList()
     {
+        // Build set of species that have at least one tera raid encounter
+        var raidSpecies = new HashSet<int>();
+        foreach (var enc in Encounters9.TeraBase)
+            raidSpecies.Add(enc.Species);
+        foreach (var enc in Encounters9.TeraDLC1)
+            raidSpecies.Add(enc.Species);
+        foreach (var enc in Encounters9.TeraDLC2)
+            raidSpecies.Add(enc.Species);
+        foreach (var enc in Encounters9.Dist)
+            raidSpecies.Add(enc.Species);
+        foreach (var enc in Encounters9.Might)
+            raidSpecies.Add(enc.Species);
+
         var species = new List<ComboItem>();
         var names = GameInfo.Strings.specieslist;
 
         for (int i = 1; i < names.Length; i++)
         {
-            if (PersonalTable.SV.IsPresentInGame((ushort)i, 0))
+            if (raidSpecies.Contains(i))
                 species.Add(new ComboItem(names[i], i));
         }
 
