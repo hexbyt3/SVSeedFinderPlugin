@@ -1283,7 +1283,7 @@ public sealed partial class Gen9SeedFinderForm : Form
             Gender = gender,
             Ability = GetAbilityPermission(),
             Nature = natureCombo.SelectedIndex == 0 ? Nature.Random : (Nature)(natureCombo.SelectedIndex - 1),
-            Shiny = (Shiny)shinyCombo.SelectedIndex,
+            Shiny = shinyCombo.SelectedIndex == 1 ? Shiny.Always : Shiny.Random,
         };
 
         return criteria;

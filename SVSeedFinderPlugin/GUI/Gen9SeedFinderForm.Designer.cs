@@ -341,9 +341,8 @@ namespace SVSeedFinderPlugin.GUI
             this.shinyCombo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.shinyCombo.FormattingEnabled = true;
             this.shinyCombo.Items.AddRange(new object[] {
-                "Random",
-                "Never",
-                "Always"});
+                "No",
+                "Yes"});
             this.shinyCombo.Location = new System.Drawing.Point(240, 52);
             this.shinyCombo.Name = "shinyCombo";
             this.shinyCombo.Size = new System.Drawing.Size(80, 23);
