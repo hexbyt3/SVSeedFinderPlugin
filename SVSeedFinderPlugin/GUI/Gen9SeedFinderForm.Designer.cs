@@ -309,7 +309,7 @@ namespace SVSeedFinderPlugin.GUI
                 "1/2"});
             this.abilityCombo.Location = new System.Drawing.Point(80, 52);
             this.abilityCombo.Name = "abilityCombo";
-            this.abilityCombo.Size = new System.Drawing.Size(100, 23);
+            this.abilityCombo.Size = new System.Drawing.Size(160, 23);
             this.abilityCombo.TabIndex = 3;
             this.abilityCombo.SelectedIndex = 0;
 

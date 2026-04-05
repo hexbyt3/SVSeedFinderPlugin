@@ -439,7 +439,30 @@ public sealed partial class Gen9SeedFinderForm : Form
 
         UpdateEncounterList(species);
         UpdateSourceDisplay();
+        UpdateAbilityList(species);
         ValidateCurrentSelection();
+    }
+
+    private void UpdateAbilityList(int species)
+    {
+        var form = _cachedSpeciesEncounters.Count > 0 ? _cachedSpeciesEncounters[0].Form : 0;
+        var pi = PersonalTable.SV[(ushort)species, (byte)form];
+        var names = GameInfo.Strings.abilitylist;
+        var a1 = names[pi.Ability1];
+        var a2 = names[pi.Ability2];
+        var aH = names[pi.AbilityH];
+
+        var prev = abilityCombo.SelectedIndex;
+        abilityCombo.Items.Clear();
+        abilityCombo.Items.AddRange(new object[]
+        {
+            "Any",
+            $"{a1} (1)",
+            $"{a2} (2)",
+            $"{aH} (H)",
+            "1/2",
+        });
+        abilityCombo.SelectedIndex = Math.Clamp(prev, 0, abilityCombo.Items.Count - 1);
     }
 
     /// <summary>
