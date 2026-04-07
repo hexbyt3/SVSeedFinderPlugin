@@ -1841,6 +1841,9 @@ public sealed partial class Gen9SeedFinderForm : Form
             // Ensure valid Met Date for Mighty Raid Pokemon
             pk.CheckAndSetUnrivaledDate();
 
+            // Apply a legal ball matching the Pokémon's color (PKHeX built-in behavior)
+            BallApplicator.ApplyBallLegalByColor(pk);
+
             pk.ResetPartyStats();
 
             return pk;
