@@ -7,8 +7,6 @@ namespace SVSeedFinderPlugin.GUI
     /// </summary>
     partial class Gen9SeedFinderForm
     {
-        private System.ComponentModel.IContainer components = null;
-
         #region Windows Form Designer generated code
 
         /// <summary>
