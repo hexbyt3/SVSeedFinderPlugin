@@ -666,7 +666,7 @@ public sealed partial class Gen9SeedFinderForm : Form
         }
 
         // Check nature constraints
-        if (selectedEncounter is IFixedNature fn && fn.Nature.IsFixed())
+        if (selectedEncounter is IFixedNature fn && fn.Nature.IsFixed)
         {
             var requiredNature = (int)fn.Nature + 1; // +1 because index 0 is "Any"
 
@@ -1112,7 +1112,7 @@ public sealed partial class Gen9SeedFinderForm : Form
         }
 
         // Check nature
-        if (selectedEncounter is IFixedNature fn && fn.Nature.IsFixed() && natureCombo.SelectedIndex != 0)
+        if (selectedEncounter is IFixedNature fn && fn.Nature.IsFixed && natureCombo.SelectedIndex != 0)
         {
             var selectedNature = (Nature)(natureCombo.SelectedIndex - 1);
             if (fn.Nature != selectedNature)
@@ -1544,7 +1544,7 @@ public sealed partial class Gen9SeedFinderForm : Form
                     if (criteria.Gender != Gender.Random && pk.Gender != (int)criteria.Gender)
                         continue;
 
-                    if (criteria.Nature.IsFixed() && pk.Nature != criteria.Nature)
+                    if (criteria.Nature.IsFixed && pk.Nature != criteria.Nature)
                         continue;
 
                     if (!CheckIVRanges(pk, ivRanges))
